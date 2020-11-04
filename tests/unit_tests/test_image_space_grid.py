@@ -1,5 +1,5 @@
 import numpy as np
-from utils.utils import *
+from utils.utils import color_green, color_reset
 from waypoint_grids.projected_image_space_grid import ProjectedImageSpaceGrid
 from dotmap import DotMap
 

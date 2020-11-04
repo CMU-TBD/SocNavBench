@@ -1,5 +1,5 @@
 import numpy as np
-from utils.utils import *
+from utils.utils import color_green, color_reset
 
 
 def test_fmm_map():

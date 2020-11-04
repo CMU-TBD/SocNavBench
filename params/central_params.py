@@ -59,8 +59,9 @@ def create_robot_params():
     p = DotMap()
     # Load the dependencies
     rob_p = user_config['robot_params']
-    p.port = rob_p.getint('port')
-    p.repeat_freq = rob_p.getint('repeat_freq')
+    p.send_ID = rob_p.get('send_ID')
+    p.recv_ID = rob_p.get('recv_ID')
+    p.max_repeats = max(0, rob_p.getint('max_repeats'))
     p.physical_params = \
         DotMap(radius=rob_p.getfloat('radius_cm') / 100.0,
                base=rob_p.getfloat('distance_from_ground_cm'),
@@ -82,6 +83,8 @@ def create_joystick_params():
     p.dt = joystick_p.getfloat('dt')
     p.use_system_dynamics = joystick_p.getboolean('use_system_dynamics')
     p.use_random_planner = joystick_p.getboolean('use_random_planner')
+    p.episode_horizon_s = joystick_p.getint('episode_horizon')
+    p.control_horizon_s = joystick_p.getfloat('control_horizon_s')
     p.track_vel_accel = joystick_p.getboolean('track_vel_accel')
     p.print_data = joystick_p.getboolean('print_data')
     p.track_sim_states = joystick_p.getboolean('track_sim_states')
@@ -96,9 +99,7 @@ def create_dataset(dataset_name: str):
     p.name = dataset_name
     p.file_name = dataset_p.get('file_name')
     p.fps = dataset_p.getint('fps')
-    # p.ped_range = eval(dataset_p.get('ped_range'))
-    # (starts of the datasets are located in episode_params)
-    # p.start_t = eval(dataset_p.get('start_t'))
+    # (starts and range of the dataset are located in episode_params)
     p.spawn_delay_s = dataset_p.getfloat('spawn_delay_s')
     p.offset = eval(dataset_p.get('offset'))
     p.swapxy = dataset_p.getboolean('swapxy')
@@ -289,12 +290,13 @@ def create_control_pipeline_params():
     return p
 
 
-def create_simulator_params():
+def create_simulator_params(verbose=True):
     p = DotMap()
     sim_p = user_config['simulator_params']
     p.dt = sim_p.getfloat('dt')
     p.keep_episode_running = sim_p.getboolean('keep_episode_running')
-    p.block_joystick = sim_p.getboolean('block_joystick')
+    p.use_multithreading = sim_p.getboolean('use_multithreading')
+    p.block_joystick = (sim_p.get('synchronous_mode') == "synchronous")
     p.delta_t_scale = sim_p.getfloat('delta_t_scale')
     p.socnav_params = create_socnav_params()
     p.img_scale = sim_p.getfloat('img_scale')
@@ -306,13 +308,16 @@ def create_simulator_params():
     # Load obstacle map params
     p.obstacle_map_params = create_obstacle_map_params()
     # much faster to only render the topview rather than use the 3D renderer
-    from utils.utils import color_blue, color_reset
-    if p.render_3D:
-        print("%sRender mode: Full Render (TOPVIEW, RGB, and DEPTH)%s" %
-              (color_blue, color_reset))
-    else:
-        print("%sRender mode: Schematic view (TOPVIEW only)%s" %
-              (color_blue, color_reset))
+    from utils.utils import color_orange, color_blue, color_reset
+    if verbose:
+        print("%sSimulator running in %s mode, dt=%.3fs%s" %
+              (color_orange, sim_p.get('synchronous_mode'), p.dt, color_reset))
+        if p.render_3D:
+            print("%sRender mode: Full Render (TOPVIEW, RGB, and DEPTH)%s" %
+                  (color_blue, color_reset))
+        else:
+            print("%sRender mode: Schematic view (TOPVIEW only)%s" %
+                  (color_blue, color_reset))
     p.verbose_printing = sim_p.getboolean('verbose_printing')
     p.clear_files = sim_p.getboolean('clear_files')
     p.record_video = sim_p.getboolean('record_video')
@@ -334,7 +339,7 @@ def create_agent_params(with_planner=False, with_obstacle_map=False):
     # Load system dynamics params
     p.system_dynamics_params = create_system_dynamics_params()
     if with_planner:
-        p.episode_horizon_s = agent_p.getfloat('episode_horizon_s')
+        p.episode_horizon_s = agent_p.getfloat('episode_horizon')
         p.control_horizon_s = agent_p.getfloat('control_horizon_s')
 
         # Load the dependencies
@@ -419,8 +424,9 @@ def create_obstacle_map_params():
     return p
 
 
-def create_map_params():
-    p = DotMap()
+def create_test_map_params(p=None):
+    if(p is None):
+        p = DotMap()
     # NOTE: this is very much subject to change with diff maps
 
     # goal_pos_n2 = np.array([[9., 15.]])
@@ -428,19 +434,19 @@ def create_map_params():
 
     # pos_nk2 = np.array([[[8., 16.], [8., 12.5], [18., 16.5]]], dtype=np.float32)
     p.pos_nk2 = np.array(
-        [[[8., 9.], [8., 12.5], [18., 12.5]]], dtype=np.float32)
+        [[[8., 8.], [8., 11.5], [18., 11.5]]], dtype=np.float32)
 
     # p.test_goal_ang_obj_ans = [19.634956, 29.616005, 74.31618]
-    p.test_goal_ang_obj_ans = [5.0869893, 18.3243617, 60.214370]
+    p.test_goal_ang_obj_ans = [0., 18.15444529, 78.53981415]
 
     # p.test_goal_dist_ans = [49.088074, 179.12201, 2071.5808]
-    p.test_goal_dist_ans = [644.88555, 1126.650778, 1126.65109]
+    p.test_goal_dist_ans = [6.17855224e+02, 9.27975445e+02, 2.50000000e+07]
 
     # p.test_obst_map_ans = [1.252921, 1.5730935, 1.7213388]
-    p.test_obst_map_ans = [100.0, 0.5900573134422302, 100.0]
+    p.test_obst_map_ans = [3.33432937, 0.07499108, -0.025]
 
     # p.test_obst = [0., 0., 0.]
-    p.test_obs_obj_ans = [0., 0., 10.345789710051179]
+    p.test_obs_obj_ans = [0., 112.8953653, 172.26562524]
 
     return p
 
@@ -493,7 +499,7 @@ def get_path_to_socnav():
         PATH_TO_HUMANAV = os.path.join(os.path.dirname(__file__), '..')
         if(os.path.exists(PATH_TO_HUMANAV)):
             return PATH_TO_HUMANAV
-        print('\033[31m', "ERROR: Failed to find SocNavBench installation at",
+        print('\033[31m', "ERROR: Failed to find tbd_SocNavBench installation at",
               PATH_TO_HUMANAV, '\033[0m')
         os._exit(1)  # Failure condition
     return PATH_TO_HUMANAV

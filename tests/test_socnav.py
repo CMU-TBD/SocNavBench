@@ -1,15 +1,14 @@
 import numpy as np
-from random import random
+import random
 from dotmap import DotMap
 # Humanav
 from agents.humans.human import Human
 from agents.humans.recorded_human import PrerecordedHuman
 from agents.robot_agent import RobotAgent
-from socnav.socnav_renderer import SocNavRenderer
 # Planner + Simulator:
-from simulators.central_simulator import CentralSimulator
+from simulators.simulator import Simulator
 from params.central_params import get_seed, create_socnav_params
-from utils.utils import *
+from utils.utils import construct_environment, generate_config_from_pos_3
 
 # seed the random number generator
 random.seed(get_seed())
@@ -32,8 +31,10 @@ def create_params():
     # Introduce the episode params
     from params.central_params import create_episodes_params, create_datasets_params
     p.episode_params = create_episodes_params()
+
     # not testing robot, only simulator + agents
-    p.episode_params.without_robot = True
+    p.episode_params.without_robot = False
+
     # overwrite tests with custom basic test
     p.episode_params.tests = {}
     default_name = "test_socnav_univ"
@@ -47,7 +48,7 @@ def create_params():
                agents_start=[], agents_end=[],
                robot_start_goal=[[10, 3, 0], [15.5, 8, 0.7]],
                max_time=30,
-               write_episode_log=False
+               write_episode_log=True
                )
 
     # Tilt the camera 10 degree down from the horizontal axis
@@ -87,65 +88,6 @@ def generate_auto_humans(starts, goals, simulator, environment, p, r):
         simulator.add_agent(new_human_i)
 
 
-def load_building(p):
-    try:
-        # get the renderer from the camera p
-        r = SocNavRenderer.get_renderer(p)
-        # obtain "resolution and traversible of building"
-        dx_cm, traversible = r.get_config()
-    except FileNotFoundError:  # did not find traversible.pkl for this map
-        print("%sUnable to find traversible, reloading building%s" %
-              (color_red, color_reset))
-        # it *should* have been the case that the user did not load the meshes
-        assert(p.building_params.load_meshes == False)
-        p2 = copy.deepcopy(p)
-        p2.building_params.load_meshes = True
-        r = SocNavRenderer.get_renderer(p2)
-        # obtain "resolution and traversible of building"
-        dx_cm, traversible = r.get_config()
-    return r, dx_cm, traversible
-
-
-def construct_environment(p, test, episode):
-    # update map to match the episode params
-    p.building_params.building_name = episode.map_name
-    print("%s\n\nStarting episode \"%s\" in building \"%s\"%s\n\n" %
-          (color_yellow, test, p.building_params.building_name, color_reset))
-    r, dx_cm, traversible = load_building(p)
-    # Convert the grid spacing to units of meters. Should be 5cm for the S3DIS data
-    dx_m = dx_cm / 100.0
-    if p.render_3D:
-        # Get the surreal dataset for human generation
-        surreal_data = r.d
-        # Update the Human's appearance classes to contain the dataset
-        from agents.humans.human_appearance import HumanAppearance
-        HumanAppearance.dataset = surreal_data
-        human_traversible = np.empty(traversible.shape)
-        human_traversible.fill(1)  # initially all good
-
-    # In order to print more readable arrays
-    np.set_printoptions(precision=3)
-
-    # TODO: make this a param element
-    room_center = \
-        np.array([traversible.shape[1] * 0.5,
-                  traversible.shape[0] * 0.5,
-                  0.0]
-                 ) * dx_m
-
-    # Create default environment which is a dictionary
-    # containing ["map_scale", "traversibles"]
-    # which is a constant and list of traversibles respectively
-    environment = {}
-    environment["map_scale"] = float(dx_m)
-    environment["room_center"] = room_center
-    # obstacle traversible / human traversible
-    if p.render_3D:
-        environment["human_traversible"] = np.array(human_traversible)
-    environment["map_traversible"] = 1. * np.array(traversible)
-    return environment, r
-
-
 def test_socnav():
     """
     Code for loading random humans into the environment
@@ -163,11 +105,7 @@ def test_socnav():
         Creating planner, simulator, and control pipelines for the framework
         of a human trajectory and pathfinding.
         """
-        simulator = CentralSimulator(
-            environment,
-            renderer=r,
-            episode_params=episode
-        )
+        simulator = Simulator(environment, renderer=r, episode_params=episode)
         """Generate the autonomous human agents from the episode"""
         generate_auto_humans(episode.agents_start, episode.agents_end,
                              simulator, environment, p, r)

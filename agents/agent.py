@@ -33,7 +33,7 @@ class Agent(AgentBase):
                         with_system_dynamics: bool = True,
                         with_objectives: bool = True,
                         keep_episode_running: bool = False):
-        """ Initializes important fields for the CentralSimulator"""
+        """ Initializes important fields for the Simulator"""
         if(not hasattr(self, "params")):
             self.params = create_agent_params(with_planner=with_planner)
         self.obstacle_map = sim_map

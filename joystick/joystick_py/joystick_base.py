@@ -3,7 +3,7 @@ import json
 import os
 import random
 from utils.utils import *
-from params.central_params import create_joystick_params, get_path_to_socnav, get_seed
+from params.central_params import create_joystick_params, get_path_to_socnav, create_robot_params, get_seed
 from simulators.sim_state import SimState
 from simulators.episode import Episode
 
@@ -33,10 +33,11 @@ class JoystickBase():
         # socket fields
         self.robot_sender_socket = None    # the socket for sending commands to the robot
         self.robot_receiver_socket = None  # world info receiver socket
-        self.host = '127.0.0.1'   # using localhost for now
-        self.port_send = self.joystick_params.port  # sender port
-        self.port_recv = self.port_send + 1         # receiver port
-        print("Initiated joystick at", self.host, self.port_send)
+        # flipped bc joystick-recv = robot-send & vice versa
+        self.send_ID = create_robot_params().recv_ID
+        self.recv_ID = create_robot_params().send_ID
+        print("Initiated joystick locally (AF_UNIX) at \"%s\" & \"%s\"" %
+              (self.send_ID, self.recv_ID))
         # potentially add more fields based off the params
         self.param_based_init()
 
@@ -115,6 +116,11 @@ class JoystickBase():
 
     def update_loop(self):
         raise NotImplementedError
+
+    def pre_update(self):
+        assert(self.sim_dt is not None)
+        self.robot_receiver_socket.listen(1)  # init robot listener socket
+        self.joystick_on = True
 
     def finish_episode(self):
         # finished this episode
@@ -215,7 +221,7 @@ class JoystickBase():
 
             if self.joystick_params.write_pandas_log:
                 # used for file IO such as pandas logging
-                # NOTE: this MUST match the directory name in CentralSimulator
+                # NOTE: this MUST match the directory name in Simulator
                 self.dirname = 'tests/socnav/' + "test_" + self.algorithm_name + "/" +\
                     self.current_ep.get_name() + "/joystick_data"
                 # Write the Agent's trajectory data into a pandas file
@@ -248,8 +254,8 @@ class JoystickBase():
         else:
             # option to update the env and agents in the existing (running) episode
             self.current_ep.update(env, agents)
-        # update the delta_t of the simulator, which we dont assume is consistent
-        self.sim_delta_t = current_world.get_delta_t()
+        # update the delta_t of the simulator, which we wont assume is consistent
+        self.sim_dt = current_world.get_delta_t()
 
     """ END LISTEN UTILS """
 
@@ -299,8 +305,8 @@ class JoystickBase():
         if self.joystick_on:
             # connect to the socket, closing it, and continuing the thread to completion
             try:
-                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                s.connect((self.host, self.port_recv))
+                s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                s.connect(self.recv_ID)
             except:
                 print("%sClosing listener socket%s" % (color_red, color_reset))
             self.robot_receiver_socket.close()
@@ -308,12 +314,11 @@ class JoystickBase():
     def send_to_robot(self, message: str):
         # Create a TCP/IP socket
         self.robot_sender_socket = \
-            socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # Connect the socket to the port where the server is listening
-        robot_addr = (self.host, self.port_send)
+            socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        # Connect the socket to the location where the server is listening
         assert(isinstance(message, str))
         try:
-            self.robot_sender_socket.connect(robot_addr)
+            self.robot_sender_socket.connect(self.send_ID)
         except:  # used to turn off the joystick
             return
         # Send data
@@ -326,9 +331,9 @@ class JoystickBase():
         """Creates the initial handshake between the joystick and the robot to
         have a communication channel with the external robot process """
         self.robot_sender_socket = \
-            socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
-            self.robot_sender_socket.connect((self.host, self.port_send))
+            self.robot_sender_socket.connect(self.send_ID)
         except:
             print("%sUnable to connect to robot%s" % (color_red, color_reset))
             print("Make sure you have a simulation instance running")
@@ -342,8 +347,8 @@ class JoystickBase():
         controller that sends information about the episodes as well as the 
         RobotAgent that sends it's SimStates serialized through json as a 'sense'"""
         self.robot_receiver_socket = \
-            socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.robot_receiver_socket.bind((self.host, self.port_recv))
+            socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.robot_receiver_socket.bind(self.recv_ID)
         # wait for a connection
         self.robot_receiver_socket.listen(1)
         connection, client = self.robot_receiver_socket.accept()

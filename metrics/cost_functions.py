@@ -50,7 +50,8 @@ def asym_gauss(x, y, theta=0, sig_theta=2, xc=0, yc=0):
     c = ((np.sin(theta) / sigma) ** 2 + (np.cos(theta) / sig_s) ** 2) / 2
 
     # gaussian
-    agxy = np.exp(-(a * (x - xc) ** 2 + 2 * b * (x - xc) * (y - yc) + c * (y - yc) ** 2))
+    agxy = np.exp(-(a * (x - xc) ** 2 + 2 * b * (x - xc)
+                    * (y - yc) + c * (y - yc) ** 2))
 
     return agxy
 
@@ -79,9 +80,10 @@ def path_length_ratio(trajectory, goal_config=None):
         goal_config = trajectory[-1, :]
 
     start_config = trajectory[0, :]
-    distance = path_length(trajectory)
-    displacement = np.linalg.norm(goal_config-start_config)
-    return displacement/distance
+    epsilon = 0.00001  # for numerical stability
+    distance = path_length(trajectory) + epsilon
+    displacement = np.linalg.norm(goal_config - start_config)
+    return distance / displacement
 
 
 def path_irregularity(trajectory, goal_config=None):
@@ -103,8 +105,8 @@ def path_irregularity(trajectory, goal_config=None):
     point_to_goal_traj = goal_config[:-1] - traj_xy
     # cos inv of dot product of vectors
     cos_theta = np.sum(point_to_goal_traj * traj_xy, axis=1) \
-             / (np.linalg.norm(point_to_goal_traj, axis=1) *
-                np.linalg.norm(traj_xy, axis=1) + (1/1E10))
+        / (np.linalg.norm(point_to_goal_traj, axis=1) *
+           np.linalg.norm(traj_xy, axis=1) + (1 / 1E10))
     theta_to_goal_traj = np.arccos(cos_theta)
     path_irr = np.sum(np.abs(theta_to_goal_traj)) / len(theta_to_goal_traj)
 

@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
     srand(1); // seed random number generator
     cout << "Demo Joystick Interface in C++ (Random planner)" << endl;
     /// TODO: add suport for reading .ini param files from C++
-    cout << "Initiated joystick at localhost:" << PORT_SEND << endl;
+    cout << "Initiated joystick locally (AF_UNIX) at \"" << SEND_ID << " & \"" << RECV_ID << "\"" << endl;
     // establish socket that sends data to robot
     if (init_send_conn(sender_addr, sender_fd) < 0)
         return -1;

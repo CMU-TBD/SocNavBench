@@ -10,7 +10,7 @@ To download our custom curated maps (edited from the SD3DIS models) follow this 
 
 However, if you'd like to download and configure all the original maps, follow the instructions in [`sd3dis/README.md`](sd3dis/README.md) to correctly install the building/area meshes. 
 
-Note: `SocNavBench` is independent of the actual indoor office environment and human meshes used. In this work we use human meshes exported from the [SURREAL](https://www.di.ens.fr/willow/research/surreal/data/) dataset and scans of indoor office environments from the [S3DIS](http://buildingparser.stanford.edu/dataset.html) dataset. However, if you would like to use other meshes, please download and configure them yourself and update the parameters in `central_params.py` to point to your data installation.
+Note: `SocNavBench` is independent of the actual indoor office environment and human meshes used. In this work we use human meshes exported from the [SURREAL](https://www.di.ens.fr/willow/research/surreal/data/) dataset and scans of indoor office environments from the [S3DIS](http://buildingparser.stanford.edu/dataset.html) dataset.
 
 ## Setup
 ### Install Anaconda, gcc, g++, libassimp-dev
@@ -34,7 +34,7 @@ conda activate socnavbench
 ```
 
 #### Install pip/conda packages
-In the terminal (and in the virtual environment from above `socnavbench`) run:
+In the terminal (and in the virtual environment from above: `socnavbench`) run:
 ```
 chmod a+x get_packages.sh
 bash get_packages.sh # make sure the socnavbench conda environment is active!
@@ -58,7 +58,7 @@ Additionally, this version of `pyassimp` has a bug which can be fixed by followi
 
 
 ## Run the SocNavBench tests
-To get you started we've included `tests`, which contains the main code example for rendering the central simulaton and various unit tests. 
+To get you started we've included `tests`, which contains the main code example for testing the simulator mechanics (`test_socnav.py`) as well as testing multiple episodes (`test_episodes.py`) which can both be configured in `schematic` or `full-render` mode.
 
 ```
 # From the base SocNavBench directory
@@ -70,5 +70,5 @@ python3 tests/all_unit_tests.py
 PYOPENGL_PLATFORM=egl PYTHONPATH='.' python3 tests/test_socnav.py
 ...
 # In a seperate shell (as a separate executable):
-python3 joystick/test_example_joystick.py 
+python3 joystick/joystick_client.py
 ```

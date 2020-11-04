@@ -1,11 +1,11 @@
 import numpy as np
 from metrics import cost_functions
-from simulators.central_simulator import CentralSimulator
+from simulators.simulator import Simulator
 import pandas as pd
 
 
 # meta
-def success(central_sim: CentralSimulator):
+def success(central_sim: Simulator):
     terminate_cause = central_sim.robot.termination_cause
     if terminate_cause == "Pedestrian Collision":
         return False
@@ -22,29 +22,29 @@ def success(central_sim: CentralSimulator):
     return False
 
 
-def total_sim_time_taken(central_sim: CentralSimulator):
+def total_sim_time_taken(central_sim: Simulator):
     last_step_num = max(list(central_sim.sim_states.keys()))
     return last_step_num * central_sim.dt
 
 
-def sim_time_budget(central_sim: CentralSimulator):
+def sim_time_budget(central_sim: Simulator):
     return central_sim.episode_params.max_time
 
 
-def termination_cause(central_sim: CentralSimulator):
+def termination_cause(central_sim: Simulator):
     return central_sim.robot.termination_cause
 
 
-def wall_wait_time(central_sim: CentralSimulator):
+def wall_wait_time(central_sim: Simulator):
     return central_sim.robot.get_block_t_total()
 
 
-def map(central_sim: CentralSimulator):
+def map(central_sim: Simulator):
     return central_sim.episode_params.map_name
 
 
 # motion
-def robot_speed(central_sim: CentralSimulator, percentile=False):
+def robot_speed(central_sim: Simulator, percentile=False):
     # extract the bot traj and drop the heading
     robot_trajectory = np.squeeze(
         central_sim.robot.get_trajectory().position_and_heading_nk3())[:, :-1]
@@ -60,7 +60,7 @@ def robot_speed(central_sim: CentralSimulator, percentile=False):
     return robot_speed
 
 
-def robot_velocity(central_sim: CentralSimulator, percentile=False):
+def robot_velocity(central_sim: Simulator, percentile=False):
     # extract the bot traj and drop the heading
     robot_trajectory = np.squeeze(
         central_sim.robot.get_trajectory().position_and_heading_nk3())[:, :-1]
@@ -75,7 +75,7 @@ def robot_velocity(central_sim: CentralSimulator, percentile=False):
     return robot_vel
 
 
-def robot_acceleration(central_sim: CentralSimulator, percentile=False):
+def robot_acceleration(central_sim: Simulator, percentile=False):
     # extract the bot traj and drop the heading
     robot_trajectory = np.squeeze(
         central_sim.robot.get_trajectory().position_and_heading_nk3())[:, :-1]
@@ -91,7 +91,7 @@ def robot_acceleration(central_sim: CentralSimulator, percentile=False):
     return robot_acc
 
 
-def robot_jerk(central_sim: CentralSimulator, percentile=False):
+def robot_jerk(central_sim: Simulator, percentile=False):
     # extract the bot traj and drop the heading
     robot_trajectory = np.squeeze(
         central_sim.robot.get_trajectory().position_and_heading_nk3())[:, :-1]
@@ -107,7 +107,7 @@ def robot_jerk(central_sim: CentralSimulator, percentile=False):
     return robot_jrk
 
 
-def robot_motion_energy(central_sim: CentralSimulator, percentile=False):
+def robot_motion_energy(central_sim: Simulator, percentile=False):
     # extract the bot traj and drop the heading
     robot_trajectory = np.squeeze(
         central_sim.robot.get_trajectory().position_and_heading_nk3())[:, :-1]
@@ -124,7 +124,7 @@ def robot_motion_energy(central_sim: CentralSimulator, percentile=False):
 
 
 # path
-def path_length(central_sim: CentralSimulator, percentile=False):
+def path_length(central_sim: Simulator, percentile=False):
     # extract the bot traj and drop the heading
     robot_trajectory = np.squeeze(
         central_sim.robot.get_trajectory().position_and_heading_nk3())[:, :-1]
@@ -138,7 +138,7 @@ def path_length(central_sim: CentralSimulator, percentile=False):
     return robot_path_ln
 
 
-def path_length_ratio(central_sim: CentralSimulator, percentile=False):
+def path_length_ratio(central_sim: Simulator, percentile=False):
     # extract the bot traj and drop the heading
     robot_trajectory = np.squeeze(
         central_sim.robot.get_trajectory().position_and_heading_nk3())[:, :-1]
@@ -153,7 +153,7 @@ def path_length_ratio(central_sim: CentralSimulator, percentile=False):
     return robot_path_ln_ratio
 
 
-def path_irregularity(central_sim: CentralSimulator, percentile=False):
+def path_irregularity(central_sim: Simulator, percentile=False):
 
     robot_trajectory = np.squeeze(
         central_sim.robot.get_trajectory().position_and_heading_nk3())
@@ -176,7 +176,7 @@ def path_irregularity(central_sim: CentralSimulator, percentile=False):
     return path_irr
 
 
-def goal_traversal_ratio(central_sim: CentralSimulator, percentile=False):
+def goal_traversal_ratio(central_sim: Simulator, percentile=False):
     # extract the bot traj and the goal and drop the heading
     robot_trajectory = np.squeeze(
         central_sim.robot.get_trajectory().position_and_heading_nk3())[:, :-1]
@@ -197,7 +197,7 @@ def goal_traversal_ratio(central_sim: CentralSimulator, percentile=False):
 
 # pedestrian related
 # TODO incorporate radii
-def time_to_collision(central_sim: CentralSimulator, percentile=False):
+def time_to_collision(central_sim: Simulator, percentile=False):
     sim_df = central_sim.sim_df
     robot_indcs = (sim_df.agent_name == 'robot_agent')
     ped_df = central_sim.sim_df[~robot_indcs]
@@ -255,7 +255,7 @@ def time_to_collision(central_sim: CentralSimulator, percentile=False):
     return ttc
 
 
-def closest_pedestrian_distance(central_sim: CentralSimulator, percentile=False):
+def closest_pedestrian_distance(central_sim: Simulator, percentile=False):
     sim_df = central_sim.sim_df
     robot_indcs = (sim_df.agent_name == 'robot_agent')
     ped_df = central_sim.sim_df[~robot_indcs]

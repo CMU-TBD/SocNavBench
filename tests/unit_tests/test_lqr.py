@@ -4,7 +4,7 @@ from costs.quad_cost_with_wrapping import QuadraticRegulatorRef
 from optCtrl.lqr import LQRSolver
 from systems.dubins_v1 import DubinsV1
 from dotmap import DotMap
-from utils.utils import *
+from utils.utils import color_green, color_reset
 
 
 def create_params():
