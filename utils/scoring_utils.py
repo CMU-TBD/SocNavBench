@@ -1,9 +1,10 @@
 import os
 import pickle as pkl
 from collections import defaultdict
-from simulators.central_simulator import CentralSimulator
+from simulators.simulator import Simulator
 
-def collate_episode_scores(central_sim: CentralSimulator, params=None):
+
+def collate_episode_scores(central_sim: Simulator, params=None):
     """
     Takes in the outputs of generate_episode_score_report
     And digests them into overall scores
@@ -47,7 +48,6 @@ def collate_episode_scores(central_sim: CentralSimulator, params=None):
             score = score_dict[key]
             if isinstance(score, float):
                 agg_score_dict_fail[key] += [score]
-
 
     # do somethings differently for the unsuccessful episodes
     # at min, count the different failure reasons

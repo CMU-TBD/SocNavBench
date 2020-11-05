@@ -259,8 +259,8 @@ class SocNavRenderer():
         """
 
         traversible_dir = self.p.traversible_dir
-        traversible_dir = os.path.join(
-            traversible_dir, self.p.building_params.building_name)
+        traversible_dir = os.path.join(traversible_dir,
+                                       self.p.building_params.building_name)
 
         if self.p.building_params.load_traversible_from_pickle_file or not self.p.building_params.load_meshes:
             filename = os.path.join(traversible_dir, 'data.pkl')

@@ -1,13 +1,13 @@
 import numpy as np
 from random import randint
-from joystick.joystick_base import JoystickBase
+from joystick_py.joystick_base import JoystickBase
 
 
 class JoystickRandom(JoystickBase):
     def __init__(self):
         # our 'positions' are modeled as (x, y, theta)
-        self.robot_posn = None    # current position of the robot
-        super().__init__("RandomPlanner")
+        self.robot_posn = None             # current position of the robot
+        super().__init__("RandomPlanner")  # parent class needs to know the algorithm
 
     def joystick_sense(self):
         # ping's the robot to request a sim state
@@ -24,7 +24,7 @@ class JoystickRandom(JoystickBase):
 
         # frequency of actions per joystick refresh
         num_actions_per_dt = \
-            int(np.floor(self.sim_delta_t / self.joystick_params.dt))
+            int(np.floor(self.sim_dt / self.joystick_params.dt))
 
         # send either posntional or velocity commands depending on param status
         if(self.joystick_params.use_system_dynamics):
@@ -41,9 +41,7 @@ class JoystickRandom(JoystickBase):
                        send_vel_cmds=self.joystick_params.use_system_dynamics)
 
     def update_loop(self):
-        assert(self.sim_delta_t)
-        self.robot_receiver_socket.listen(1)  # init robot listener socket
-        self.joystick_on = True
+        super().pre_update()  # pre-update initialization
         while(self.joystick_on):
             # gather information about the world state based off the simulator
             self.joystick_sense()

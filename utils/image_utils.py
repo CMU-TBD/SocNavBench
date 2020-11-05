@@ -188,7 +188,7 @@ def render_scene(p, rgb_image_1mk3, depth_image_1mk1, environment,
     """Plots a single frame from information provided about the world state
 
     Args:
-        p (Map): CentralSimulator params
+        p (Map): Simulator params
         rgb_image_1mk3: the RGB image of the world_state to plot
         depth_image_1mk1: the depth-map image of the world_state to plot
         environment (dict): dictionary housing the obj map (bitmap) and more

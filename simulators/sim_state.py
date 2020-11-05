@@ -1,9 +1,5 @@
 import numpy as np
-from copy import deepcopy
 import json
-# from simulators.agent import Agent
-# from humans.human import Human
-from trajectory.trajectory import Trajectory
 from utils.utils import *
 
 """ These are smaller "wrapper" classes that are visible by other
@@ -13,18 +9,35 @@ NOTE: they are all READ-ONLY (only getters)
 
 
 class AgentState():
-    def __init__(self, a=None, deepcpy=False):
-        if(a):
+    def __init__(self, a=None, name=None, goal_config=None, start_config=None,
+                 current_config=None, trajectory=None, collided=False, end_acting=False,
+                 collision_cooldown=-1, radius=0, color=None):
+        """Initialize an AgentState with either an Agent instance (a) or all the individual fields"""
+        if(a is not None):
             self.name = a.get_name()
-            self.start_config = a.get_start_config(deepcpy=deepcpy)
-            self.goal_config = a.get_goal_config(deepcpy=deepcpy)
-            self.current_config = a.get_current_config(deepcpy=deepcpy)
-            self.trajectory = a.get_trajectory(deepcpy=deepcpy)
+            self.goal_config = a.get_goal_config()
+            # TODO: get start/current configs from self.trajectory
+            self.start_config = a.get_start_config()
+            self.current_config = a.get_current_config()
+            # deepcopying the trajectory to not have memory aliasing
+            # for multiple sim-states spanning a wide timerange
+            self.trajectory = a.get_trajectory(deepcpy=True)
             self.collided = a.get_collided()
-            self.end_acting = a.end_acting
+            self.end_acting = a.get_end_acting()
             self.collision_cooldown = a.get_collision_cooldown()
             self.radius = a.get_radius()
             self.color = a.get_color()
+        else:
+            self.name = name
+            self.goal_config = goal_config
+            self.start_config = start_config
+            self.current_config = current_config
+            self.trajectory = trajectory
+            self.collided = collided
+            self.end_acting = end_acting
+            self.collision_cooldown = collision_cooldown
+            self.radius = radius
+            self.color = color
 
     def get_name(self):
         return self.name
@@ -57,7 +70,7 @@ class AgentState():
         return self.get_current_config().to_3D_numpy()
 
     def to_json(self, include_start_goal=False):
-        name_json = SimState.to_json_type(deepcopy(self.name))
+        name_json = SimState.to_json_type(self.name)
         # NOTE: the configs are just being serialized with their 3D positions
         if include_start_goal:
             start_json = SimState.to_json_type(
@@ -65,9 +78,9 @@ class AgentState():
             goal_json = SimState.to_json_type(
                 self.get_goal_config().to_3D_numpy())
         current_json = SimState.to_json_type(
-            deepcopy(self.get_current_config().to_3D_numpy()))
+            self.get_current_config().to_3D_numpy())
         # trajectory_json = "None"
-        radius_json = deepcopy(self.radius)
+        radius_json = self.radius
         json_dict = {}
         json_dict['name'] = name_json
         # NOTE: the start and goal (of the robot) are only sent when the environment is sent
@@ -82,38 +95,41 @@ class AgentState():
 
     @ staticmethod
     def from_json(json_str: dict):
-        new_state = AgentState()
-        new_state.name = json_str['name']
+        name = json_str['name']
         if('start_config' in json_str.keys()):
-            new_state.start_config = \
+            start_config = \
                 generate_config_from_pos_3(json_str['start_config'])
+        else:
+            start_config = None
         if('goal_config' in json_str.keys()):
-            new_state.goal_config = \
+            goal_config = \
                 generate_config_from_pos_3(json_str['goal_config'])
-        new_state.current_config = \
+        else:
+            goal_config = None
+        current_config = \
             generate_config_from_pos_3(json_str['current_config'])
-        new_state.vehicle_trajectory = Trajectory(dt=0.05, n=1, k=0)  # default
-        new_state.radius = json_str['radius']
-        new_state.collided = False
-        new_state.end_acting = False
-        new_state.color = None
-        return new_state
+        trajectory = None  # unable to recreate trajectory
+        radius = json_str['radius']
+        collision_cooldown = -1
+        collided = False
+        end_acting = False
+        color = None
+        return AgentState(None, name, goal_config, start_config, current_config,
+                          trajectory, collided, end_acting, collision_cooldown,
+                          radius, color)
 
 
 class HumanState(AgentState):
-    def __init__(self, human, deepcpy=False):
+    def __init__(self, human):
         self.appearance = human.get_appearance()
         # Initialize the agent state class
-        super().__init__(human, deepcpy=deepcpy)
+        super().__init__(a=human)
 
     def get_appearance(self):
         return self.appearance
 
 
 class SimState():
-
-    # environment = None
-
     def __init__(self, environment: dict = None, pedestrians: dict = None,
                  robots: dict = None, sim_t: float = None, wall_t: float = None,
                  delta_t: float = None, episode_name: str = None, max_time: float = None,
@@ -175,26 +191,26 @@ class SimState():
 
     def to_json(self, robot_on=True, send_metadata=False, termination_cause=None):
         json_dict = {}
-        json_dict['robot_on'] = deepcopy(robot_on)  # true or false
-        sim_t_json = deepcopy(self.get_sim_t())
+        json_dict['robot_on'] = robot_on  # true or false
+        sim_t_json = self.get_sim_t()
         if robot_on:  # only send the world if the robot is ON
             if send_metadata:
                 environment_json = \
-                    SimState.to_json_dict(deepcopy(self.get_environment()))
-                episode_json = deepcopy(self.get_episode_name())
-                episode_max_time_json = deepcopy(self.get_episode_max_time())
+                    SimState.to_json_dict(self.get_environment())
+                episode_json = self.get_episode_name()
+                episode_max_time_json = self.get_episode_max_time()
             else:
                 environment_json = {}  # empty dictionary
                 episode_json = {}
                 episode_max_time_json = {}
             # serialize all other fields
             ped_json = \
-                SimState.to_json_dict(deepcopy(self.get_pedestrians()))
+                SimState.to_json_dict(self.get_pedestrians())
             # NOTE: the robot only includes its start/goal posn if sending metadata
             robots_json = \
-                SimState.to_json_dict(deepcopy(self.get_robots()),
+                SimState.to_json_dict(self.get_robots(),
                                       include_start_goal=send_metadata)
-            delta_t_json = deepcopy(self.get_delta_t())
+            delta_t_json = self.get_delta_t()
             # append them to the json dictionary
             json_dict['environment'] = environment_json
             json_dict['pedestrians'] = ped_json
@@ -203,7 +219,7 @@ class SimState():
             json_dict['episode_name'] = episode_json
             json_dict['episode_max_time'] = episode_max_time_json
         else:
-            json_dict['termination_cause'] = deepcopy(termination_cause)
+            json_dict['termination_cause'] = termination_cause
         # sim_state should always have time
         json_dict['sim_t'] = sim_t_json
         return json.dumps(json_dict, indent=1)
@@ -251,10 +267,11 @@ class SimState():
     @ staticmethod
     def to_json_dict(param_dict, include_start_goal=False):
         """ Converts params_dict to a json serializable dict."""
+        json_dict = {}
         for key in param_dict.keys():
-            param_dict[key] = SimState.to_json_type(
-                param_dict[key], include_start_goal=include_start_goal)
-        return param_dict
+            json_dict[key] = SimState.to_json_type(param_dict[key],
+                                                   include_start_goal=include_start_goal)
+        return json_dict
 
 
 """BEGIN SimState utils"""

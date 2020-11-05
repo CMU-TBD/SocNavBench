@@ -19,11 +19,14 @@ class RobotAgent(Agent):
         # To send the world state on the next joystick ping
         self.joystick_requests_world = -1
         # whether or not to repeat the last joystick input
-        self.repeat_joystick = False
+        self.block_joystick = False  # gets updated in Simulator
         # told the joystick that the robot is powered off
         self.notified_joystick = False
         # amount of time the robot is blocking on the joystick
         self.block_time_total = 0
+        # robot initially has no knowledge of the planning algorithm
+        # this is (optionally) sent by the joystick
+        self.algo_name = "UnknownAlgo"
 
     def simulation_init(self, sim_map, with_planner=False, keep_episode_running=False):
         # first initialize all the agent fields such as basic self.params
@@ -41,18 +44,16 @@ class RobotAgent(Agent):
         self.w_bounds = self.params.system_dynamics_params.w_bounds
         # simulation update init
         self.num_executed = 0  # keeps track of the latest command that is to be executed
+        # number of commands the joystick sends at once
         self.num_cmds_per_batch = 1
+        # maximum number of times that the robot will repeat the last command if in asynch-mode
+        self.remaining_repeats = self.params.robot_params.max_repeats
 
     def get_num_executed(self):
         return int(np.floor(len(self.joystick_inputs) / self.num_cmds_per_batch))
 
     def get_block_t_total(self):
         return self.block_time_total
-
-    def calc_repeat_freq(self):
-        # calculates the number of commands the robot repeats if in repeat-mode
-        rf = self.params.robot_params.physical_params.repeat_freq
-        return int(np.floor(rf / self.num_cmds_per_batch))
 
     @staticmethod
     def generate_robot(configs, name=None, verbose=False):
@@ -74,7 +75,7 @@ class RobotAgent(Agent):
         Sample a new robot without knowing any configs or appearance fields
         NOTE: needs environment to produce valid configs
         """
-        from humans.human_configs import HumanConfigs
+        from agents.humans.human_configs import HumanConfigs
         configs = HumanConfigs.generate_random_human_config(environment)
         return RobotAgent.generate_robot(configs)
 
@@ -99,10 +100,14 @@ class RobotAgent(Agent):
             self.execute_velocity_cmds()
         else:
             self.execute_position_cmds()
+        if (self.params.verbose):
+            print(self.get_current_config().to_3D_numpy())
+        # knowing that both executions took self.num_cmds_per_batch commands
+        self.num_executed += self.num_cmds_per_batch
 
     def execute_velocity_cmds(self):
         for _ in range(self.num_cmds_per_batch):
-            if(self.get_completed()):
+            if(self.get_end_acting()):
                 break
             current_config = self.get_current_config()
             # the command is indexed by self.num_executed and is safe due to the size constraints in the update()
@@ -117,15 +122,12 @@ class RobotAgent(Agent):
                                                      command, 1,
                                                      sim_mode='ideal'
                                                      )
-            self.num_executed += 1
             self.trajectory.append_along_time_axis(
                 t_seg, track_trajectory_acceleration=True)
             # act trajectory segment
             self.current_config = \
                 SystemConfig.init_config_from_trajectory_time_index(
                     t_seg, t=-1)
-            if (self.params.verbose):
-                print(self.get_current_config().to_3D_numpy())
 
     def execute_position_cmds(self):
         for _ in range(self.num_cmds_per_batch):
@@ -144,9 +146,6 @@ class RobotAgent(Agent):
             self.set_current_config(new_config)
             self.trajectory.append_along_time_axis(new_config,
                                                    track_trajectory_acceleration=True)
-            self.num_executed += 1
-            if (self.params.verbose):
-                print(self.get_current_config().to_3D_numpy())
 
     def sense(self):
         # send a sim_state if it was requested by the joystick
@@ -155,15 +154,16 @@ class RobotAgent(Agent):
         if self.joystick_requests_world == 0:
             # has processed all prior commands
             send_sim_state(self)
-        # block simulation (world) progression on the act() commands sent from the joystick
-        init_block_t = time.time()
-        while not self.get_end_acting() and self.num_executed >= len(self.joystick_inputs):
-            if self.num_executed == len(self.joystick_inputs):
-                if self.joystick_requests_world == 0:
-                    send_sim_state(self)
-            time.sleep(0.001)
-        # capture how much time was spent blocking on joystick inputs
-        self.block_time_total += time.time() - init_block_t
+        if self.block_joystick:
+            # block simulation (world) progression on the act() commands sent from the joystick
+            init_block_t = time.time()
+            while not self.get_end_acting() and self.num_executed >= len(self.joystick_inputs):
+                if self.num_executed == len(self.joystick_inputs):
+                    if self.joystick_requests_world == 0:
+                        send_sim_state(self)
+                time.sleep(0.001)
+            # capture how much time was spent blocking on joystick inputs
+            self.block_time_total += time.time() - init_block_t
 
     def plan(self):
         # recall the planning is being done with YOUR social nagivation algorithm
@@ -172,12 +172,26 @@ class RobotAgent(Agent):
 
     def act(self):
         # execute the next command in the queue
-        if self.num_executed < len(self.joystick_inputs):
+        num_cmds = len(self.joystick_inputs)
+        if self.num_executed < num_cmds:
             # execute all the commands on the queue
             self.execute()
             # decrement counter
             if(self.joystick_requests_world > 0):
                 self.joystick_requests_world -= 1
+        elif not self.block_joystick and self.remaining_repeats > 0:
+            # repeat the last n commands in the queue if running asynchronously
+            # only if there is at least n>0 available commands to repeat
+            if(num_cmds < 1):
+                return
+            repeats = self.joystick_inputs[-1:]
+            self.joystick_inputs.extend(repeats)
+            self.execute()
+            # decrement counter
+            if(self.joystick_requests_world > 0):
+                self.joystick_requests_world -= 1
+            # just executed one command, decrease from the counter
+            self.remaining_repeats -= 1
 
     def update(self):
         if(self.get_end_acting()):

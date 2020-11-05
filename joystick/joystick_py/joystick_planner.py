@@ -1,5 +1,5 @@
 import numpy as np
-from joystick.joystick_base import JoystickBase
+from joystick_py.joystick_base import JoystickBase
 from params.central_params import create_agent_params
 from trajectory.trajectory import Trajectory
 from utils.utils import generate_config_from_pos_3, euclidean_dist2
@@ -15,8 +15,7 @@ class JoystickWithPlanner(JoystickBase):
         self.robot_current = None    # current position of the robot
         self.robot_v = 0     # not tracked in the base simulator
         self.robot_w = 0     # not tracked in the base simulator
-        self.sim_times = []
-        super().__init__("SamplingPlanner")
+        super().__init__("SamplingPlanner")  # parent class needs to know the algorithm
 
     def init_obstacle_map(self, renderer=0):
         """ Initializes the sbpd map."""
@@ -35,6 +34,10 @@ class JoystickWithPlanner(JoystickBase):
         # rest of the 'Agent' params used for the joystick planner
         self.agent_params = create_agent_params(with_planner=True,
                                                 with_obstacle_map=True)
+        # update generic 'Agent params' with joystick-specific params
+        self.agent_params.episode_horizon_s = self.joystick_params.episode_horizon_s
+        self.agent_params.control_horizon_s = self.joystick_params.control_horizon_s
+        # init obstacle map
         self.obstacle_map = self.init_obstacle_map()
         self.obj_fn = Agent._init_obj_fn(self, params=self.agent_params)
         psc_obj = Agent._init_psc_objective(params=self.agent_params)
@@ -71,12 +74,9 @@ class JoystickWithPlanner(JoystickBase):
 
         # Updating robot speeds (linear and angular) based off simulator data
         self.robot_v = \
-            euclidean_dist2(self.robot_current, robot_prev) / self.sim_delta_t
+            euclidean_dist2(self.robot_current, robot_prev) / self.sim_dt
         self.robot_w = \
-            (self.robot_current[2] - robot_prev[2]) / self.sim_delta_t
-
-        self.sim_times += [round(self.sim_state_now.get_sim_t()
-                                 / self.sim_state_now.get_delta_t())]
+            (self.robot_current[2] - robot_prev[2]) / self.sim_dt
 
     def joystick_plan(self):
         """ Runs the planner for one step from config to generate a
@@ -127,11 +127,9 @@ class JoystickWithPlanner(JoystickBase):
                     break
 
     def update_loop(self):
-        assert self.sim_delta_t
-        self.joystick_on = True
-        self.robot_receiver_socket.listen(1)  # init robot listener socket
+        super().pre_update()  # pre-update initialization
         self.simulator_joystick_update_ratio = \
-            int(np.floor(self.sim_delta_t / self.agent_params.dt))
+            int(np.floor(self.sim_dt / self.agent_params.dt))
         while self.joystick_on:
             # gather information about the world state based off the simulator
             self.joystick_sense()
@@ -140,7 +138,6 @@ class JoystickWithPlanner(JoystickBase):
             # send a command to the robot
             self.joystick_act()
         # complete this episode, move on to the next if need be
-        # print(np.diff(self.sim_times))
         self.finish_episode()
 
 

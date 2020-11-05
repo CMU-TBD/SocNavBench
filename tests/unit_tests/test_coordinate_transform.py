@@ -2,7 +2,6 @@ import numpy as np
 from utils.angle_utils import rotate_pos_nk2, angle_normalize
 from utils import utils
 from systems.dubins_v1 import DubinsV1
-from systems.dubins_v2 import DubinsV2
 from trajectory.trajectory import Trajectory, SystemConfig
 import matplotlib.pyplot as plt
 from dotmap import DotMap
@@ -25,16 +24,17 @@ def create_params():
                                       dt=.05,
                                       v_bounds=[0.0, .6],
                                       w_bounds=[-1.1, 1.1])
-    p.system_dynamics_params.simulation_params = DotMap(simulation_mode='ideal',
-                                                        noise_params=DotMap(is_noisy=False,
-                                                                            noise_type='uniform',
-                                                                            noise_lb=[
-                                                                                -0.02, -0.02, 0.],
-                                                                            noise_ub=[
-                                                                                0.02, 0.02, 0.],
-                                                                            noise_mean=[
-                                                                                0., 0., 0.],
-                                                                            noise_std=[0.02, 0.02, 0.]))
+    p.system_dynamics_params.simulation_params = \
+        DotMap(simulation_mode='ideal',
+               noise_params=DotMap(is_noisy=False,
+                                   noise_type='uniform',
+                                   noise_lb=[
+                                       -0.02, -0.02, 0.],
+                                   noise_ub=[
+                                       0.02, 0.02, 0.],
+                                   noise_mean=[
+                                       0., 0., 0.],
+                                   noise_std=[0.02, 0.02, 0.]))
     return p
 
 

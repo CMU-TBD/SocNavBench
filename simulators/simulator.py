@@ -1,4 +1,3 @@
-import numpy as np
 import os
 import time
 import threading
@@ -9,10 +8,10 @@ from utils.utils import *
 from utils.image_utils import *
 
 
-class CentralSimulator(SimulatorHelper):
+class Simulator(SimulatorHelper):
     """The centralized simulator of SocNavBench """
 
-    def __init__(self, environment: dict, renderer=None, episode_params=None):
+    def __init__(self, environment: dict, renderer=None, episode_params=None, verbose=True):
         """ Initializer for the central simulator
         Args:
             environment (dict): dictionary housing the obj map (bitmap) and more
@@ -20,8 +19,8 @@ class CentralSimulator(SimulatorHelper):
             episode_params (str, optional): Name of the episode test that the simulator runs
         """
         # init SimulatorHelper base class
-        super().__init__(environment)
-        # init CentralSimulator implementation
+        super().__init__(environment, verbose)
+        # init Simulator implementation
         self.episode_params = episode_params
         # output directory is updated again if there is a robot (and algorithm) in the simulator
         self.params.output_directory = \
@@ -30,10 +29,11 @@ class CentralSimulator(SimulatorHelper):
                          self.episode_params.name)
         self.obstacle_map = self.init_obstacle_map(renderer)
 
-    def init_sim_data(self):
+    def init_sim_data(self, verbose: bool = True):
         self.total_agents = len(self.agents) + len(self.backstage_prerecs)
         # Create pre-simulation metadata
-        print("Running simulation on", self.total_agents, "agents")
+        if verbose:
+            print("Running simulation on", self.total_agents, "agents")
         # scale the simulator time
         self.dt = self.params.delta_t_scale * self.params.dt
         # update the baseline agents' simulation refresh rate
@@ -73,27 +73,42 @@ class CentralSimulator(SimulatorHelper):
         self.print_sim_progress(iteration)
         # run simulation
         while self.sim_t <= self.episode_params.max_time and self.loop_condition():
-            wall_t = time.time() - start_time
+            wall_t = time.time()
             # update the time for all agents
             Agent.set_sim_t(self.sim_t)
             # initiate thread operations
             self.pedestrians_update(current_state)
-            if self.robot:
+            if self.robot is not None:
                 # calls a single iteration of the robot update
                 self.robot.update()
             # update simulator time
             self.sim_t += self.dt
             # capture time after all the gen_agents have updated
             # Takes screenshot of the new simulation state
-            current_state = self.save_state(wall_t)
+            current_state = self.save_state(wall_t - start_time)
             if self.robot:
                 self.robot.update_world(current_state)
             # update iteration count
             iteration += 1
             # print simulation progress
             self.print_sim_progress(iteration)
+            # synchronize time with real-world if running in asynchronous mode
+            self.synchronize(wall_t)
         # finish the simulate
         self.conclude_simulation(start_time, iteration, r_t)
+
+    def synchronize(self, wall_t: float):
+        # get time difference between NOW and when the wall_t was last updated
+        # (occurs at the start of every simulate() cycle )
+        w_dt = time.time() - wall_t
+        # TODO: note there is danger if w_dt takes longer than self.dt
+        if(not self.params.block_joystick):
+            if(w_dt > self.dt):
+                print("%sSim-cycle took %.3fs > %.3fs%s" %
+                      (color_red, w_dt, self.dt, color_reset))
+                return
+            # sleep to run in as-close-as-possible to real-time
+            time.sleep(self.dt - w_dt)
 
     def conclude_simulation(self, start_time, iteration, r_t):
         # free all the gen_agents
@@ -102,12 +117,15 @@ class CentralSimulator(SimulatorHelper):
         # free all the prerecs
         for p in self.prerecs.values():
             del p
+        # turn off the robot if it is still on
         # capture final wall clock (completion) time
         self.sim_wall_clock = time.time() - start_time
         print("\nSimulation completed in", self.sim_wall_clock,
               "real world seconds")
         # decommission_robot
         if self.robot is not None:
+            if(not self.robot.get_end_acting()):
+                self.robot.power_off()
             self.robot_collisions = self.gather_robot_collisions(iteration)
             c = termination_cause_to_color(self.robot.termination_cause)
             term_color = color_print(c)
@@ -137,16 +155,15 @@ class CentralSimulator(SimulatorHelper):
         saved_env = self.environment
         pedestrians = {}
         for a in self.agents.values():
-            pedestrians[a.get_name()] = HumanState(a, deepcpy=True)
+            pedestrians[a.get_name()] = HumanState(a)
         # deepcopy all prerecorded gen_agents
         for a in self.prerecs.values():
-            pedestrians[a.get_name()] = HumanState(a, deepcpy=True)
+            pedestrians[a.get_name()] = HumanState(a)
         # Save all the robots
         saved_robots = {}
         last_robot_collision = ""
         if(self.robot):
-            saved_robots[self.robot.get_name()] = AgentState(self.robot,
-                                                             deepcpy=True)
+            saved_robots[self.robot.get_name()] = AgentState(self.robot)
             last_robot_collision = self.robot.latest_collider
         current_state = SimState(saved_env, pedestrians, saved_robots,
                                  self.sim_t, wall_t, self.dt, self.episode_params.name,
@@ -306,7 +323,7 @@ class CentralSimulator(SimulatorHelper):
             print("%sNo robot in simulator%s" % (color_red, color_reset))
             return None
         # give the robot knowledge of the initial world
-        self.robot.repeat_joystick = not self.params.block_joystick
+        self.robot.block_joystick = self.params.block_joystick
         self.robot.update_world(current_state)
         # initialize the robot to establish joystick connection
         assert(self.robot.world_state is not None)
@@ -320,9 +337,8 @@ class CentralSimulator(SimulatorHelper):
         while(not self.robot.joystick_ready):
             # wait until joystick receives the environment (once)
             time.sleep(0.01)
-        if(self.robot.algo_name == ""):
-            # if the robot didn't receive a planner name
-            self.robot.algo_name = "unknown"
+        # either "Unknown" if the robot did not receive an algorithm title
+        # or the name of the planning algorithm used by the joystick
         self.algo_name = self.robot.algo_name
         # name of the directory to output everything
         self.params.output_directory = \
@@ -346,10 +362,13 @@ class CentralSimulator(SimulatorHelper):
             del r_listener_thread
 
     def pedestrians_update(self, current_state: SimState):
-        agent_threads = self.init_auto_agent_threads(current_state)
-        prerec_threads = self.init_prerec_agent_threads(current_state)
-        pedestrian_threads = agent_threads + prerec_threads
-        # start agent threads
-        self.start_threads(pedestrian_threads)
-        # join all thread groups
-        self.join_threads(pedestrian_threads)
+        if(self.params.use_multithreading):
+            agent_threads = self.init_auto_agent_threads(current_state)
+            prerec_threads = self.init_prerec_agent_threads(current_state)
+            pedestrian_threads = agent_threads + prerec_threads
+            # start agent threads
+            self.start_threads(pedestrian_threads)
+            # join all thread groups
+            self.join_threads(pedestrian_threads)
+        else:
+            self.loop_through_pedestrians(current_state)

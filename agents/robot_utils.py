@@ -3,6 +3,7 @@ import json
 import socket
 import threading
 from utils.utils import *
+from params.central_params import create_robot_params
 
 lock = threading.Lock()  # for asynchronous data sending
 
@@ -22,7 +23,8 @@ def clip_posn(sim_dt: float, old_pos3: list, new_pos3: list, v_bounds: list, eps
     # margin of error for the velocity bounds
     assert(sim_dt > 0)
     dist_to_new = euclidean_dist2(old_pos3, new_pos3)
-    if(abs(dist_to_new / sim_dt) <= v_bounds[1] + epsilon):
+    req_vel = abs(dist_to_new / sim_dt)
+    if(req_vel <= v_bounds[1] + epsilon):
         return new_pos3
     # calculate theta of vector
     valid_theta = \
@@ -32,8 +34,8 @@ def clip_posn(sim_dt: float, old_pos3: list, new_pos3: list, v_bounds: list, eps
     valid_x = max_vel * np.cos(valid_theta) + old_pos3[0]
     valid_y = max_vel * np.sin(valid_theta) + old_pos3[1]
     reachable_pos3 = [valid_x, valid_y, valid_theta]
-    print("%sposition [%s] is unreachable with v bounds, clipped to [%s]%s" %
-          (color_red, iter_print(new_pos3), iter_print(reachable_pos3), color_reset))
+    print("%sposn [%s] is unreachable, clipped to [%s] (%.3fm/s > %.3fm/s)%s" %
+          (color_red, iter_print(new_pos3), iter_print(reachable_pos3), req_vel, v_bounds[1], color_reset))
     return reachable_pos3
 
 
@@ -41,9 +43,14 @@ def clip_posn(sim_dt: float, old_pos3: list, new_pos3: list, v_bounds: list, eps
 
 joystick_receiver_socket = None
 joystick_sender_socket = None
-host = '127.0.0.1'  # localhost
-port_send = None  # to be added later from params (see establish_handshake())
-port_recv = None  # to be added later from params (see establish_handshake())
+recv_ID = create_robot_params().recv_ID
+send_ID = create_robot_params().send_ID
+
+# clear sockets to be used
+if os.path.exists(recv_ID):
+    os.remove(recv_ID)
+if os.path.exists(send_ID):
+    os.remove(send_ID)
 
 
 def send_sim_state(robot):
@@ -63,11 +70,10 @@ def send_to_joystick(message: str):
         global joystick_sender_socket
         # Create a TCP/IP socket
         joystick_sender_socket = \
-            socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         # Connect the socket to the port where the server is listening
-        server_address = ((host, port_send))
         try:
-            joystick_sender_socket.connect(server_address)
+            joystick_sender_socket.connect(send_ID)
         except ConnectionRefusedError:
             # abort and dont send data
             return
@@ -119,24 +125,15 @@ def manage_data(robot, data_str: str):
         # add input commands to queue to keep track of
         for i in range(robot.num_cmds_per_batch):
             np_data = np.array(joystick_input[i], dtype=np.float32)
-            # duplicate commands if *repeating* instead of blocking
-            if robot.repeat_joystick:  # if need be, repeat n-1 times
-                repeat_amnt = robot.calc_repeat_freq()
-                for i in range(repeat_amnt):
-                    # adds command to local list of individual commands
-                    robot.joystick_inputs.append(np_data)
-            else:
-                # else no repeat, only account for the command once
-                robot.joystick_inputs.append(np_data)
+            robot.joystick_inputs.append(np_data)
 
 
 def establish_joystick_receiver_connection():
     """This is akin to a server connection (robot is server)"""
     global joystick_receiver_socket
     joystick_receiver_socket = \
-        socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    joystick_receiver_socket.bind((host,
-                                   port_recv))
+        socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    joystick_receiver_socket.bind(recv_ID)
     # wait for a connection
     joystick_receiver_socket.listen(1)
     print("Waiting for Joystick connection...")
@@ -149,11 +146,10 @@ def establish_joystick_receiver_connection():
 def establish_joystick_sender_connection():
     """This is akin to a client connection (joystick is client)"""
     global joystick_sender_socket
-    joystick_sender_socket = socket.socket(socket.AF_INET,
+    joystick_sender_socket = socket.socket(socket.AF_UNIX,
                                            socket.SOCK_STREAM)
-    address = ((host, port_send))
     try:
-        joystick_sender_socket.connect(address)
+        joystick_sender_socket.connect(send_ID)
     except:
         print("%sUnable to connect to joystick%s" %
               (color_red, color_reset))
@@ -172,11 +168,9 @@ def close_sockets():
 
 
 def force_connect():
-    global host
-    global port_recv
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     # connect to the socket to break the accept() wait
-    s.connect((host, port_recv))
+    s.connect(recv_ID)
 
 
 def establish_handshake(p: DotMap):
@@ -184,14 +178,6 @@ def establish_handshake(p: DotMap):
         # lite-mode episode does not include a robot or joystick
         return
     import time
-    # sockets for communication
-    global port_recv
-    global port_send
-    global host
-    # port for recieving commands from the joystick
-    port_recv = p.robot_params.port
-    # port for sending commands to the joystick (successor of port_recv)
-    port_send = port_recv + 1
     establish_joystick_receiver_connection()
     time.sleep(0.01)
     establish_joystick_sender_connection()
@@ -200,11 +186,9 @@ def establish_handshake(p: DotMap):
     json_dict['episodes'] = list(p.episode_params.tests.keys())
     episodes = json.dumps(json_dict)
     # Create a TCP/IP socket
-    send_episodes_socket = socket.socket(
-        socket.AF_INET, socket.SOCK_STREAM)
+    send_episodes_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     # Connect the socket to the port where the server is listening
-    server_address = ((host, port_send))
-    send_episodes_socket.connect(server_address)
+    send_episodes_socket.connect(send_ID)
     send_episodes_socket.sendall(bytes(episodes, "utf-8"))
     send_episodes_socket.close()
 

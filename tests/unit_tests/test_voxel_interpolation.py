@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import interpolate
 from utils.voxel_map_utils import VoxelMap
-from utils.utils import *
+from utils.utils import color_reset, color_green
 
 
 def test_voxel_interpolation():

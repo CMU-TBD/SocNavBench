@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from trajectory.spline.spline_3rd_order import Spline3rdOrder
 from trajectory.trajectory import SystemConfig
 from dotmap import DotMap
-from utils.utils import *
+from utils.utils import color_reset, color_green
 
 
 def test_spline_3rd_order(visualize=False):

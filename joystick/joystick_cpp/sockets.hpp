@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -10,20 +11,20 @@
 #include <cstring>
 #include <string>
 
-#define PORT_SEND 6000 // default for SocNavBench
-#define PORT_RECV (PORT_SEND + 1)
-#define LOCALHOST "127.0.0.1" // local host
+// TODO: read these from the user_params.ini
+#define SEND_ID "/tmp/socnavbench_joystick_recv" // default for SocNavBench
+#define RECV_ID "/tmp/socnavbench_joystick_send"
 
 using namespace std;
 
 // Global socket information to use throughout the program
 /* socket address of the sending-socket, to send commands to the robot */
-struct sockaddr_in sender_addr;
+struct sockaddr_un sender_addr = {AF_UNIX, SEND_ID};
 /* file descriptor of the sending-socket, to send commands to the robot */
 int sender_fd = 0;
 
 /* socket address of the receiver-socket, to listen to the robot */
-struct sockaddr_in receiver_addr;
+struct sockaddr_un receiver_addr = {AF_UNIX, RECV_ID};
 /* file descriptor of the receiver-socket, to listen to the robot */
 int receiver_fd = 0;
 
@@ -33,7 +34,7 @@ int receiver_fd = 0;
  * @param[in] robot_sender_fd The file descriptor of the robot-sender socket
  * @returns 0 if successful, -1 otherwise
  */
-int init_send_conn(struct sockaddr_in &addr, int &sender_fd);
+int init_send_conn(struct sockaddr_un &addr, int &sender_fd);
 
 /** 
  * @brief initializes the 'receiver' (server) connection to the simulator
@@ -41,7 +42,7 @@ int init_send_conn(struct sockaddr_in &addr, int &sender_fd);
  * @param[in] robot_receiver_fd The file descriptor of the robot-receiver socket
  * @returns client_fd if successful (nonnegative), -1 otherwise
  */
-int init_recv_conn(struct sockaddr_in &addr, int &receiver_fd);
+int init_recv_conn(struct sockaddr_un &addr, int &receiver_fd);
 
 /// TODO: read these in from the .ini param file instead of hardcoding
 
@@ -144,22 +145,13 @@ int listen_once(vector<char> &data)
  * @param[in] robot_sender_fd The file descriptor of the robot-sender socket
  * @returns 0 if successful, -1 otherwise
  */
-int init_send_conn(struct sockaddr_in &robot_addr,
+int init_send_conn(struct sockaddr_un &robot_addr,
                    int &robot_sender_fd)
 {
     // "client" connection
-    if ((robot_sender_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    if ((robot_sender_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
     {
         perror("\nsocket() error: ");
-        return -1;
-    }
-    // bind the host and port to the socket
-    robot_addr.sin_family = AF_INET;
-    robot_addr.sin_port = htons(PORT_SEND);
-    // Convert localhost from text to binary form
-    if (inet_pton(AF_INET, LOCALHOST, &robot_addr.sin_addr.s_addr) <= 0)
-    {
-        cout << "\nInvalid address/Address not supported \n";
         return -1;
     }
     if (connect(robot_sender_fd, (struct sockaddr *)&robot_addr,
@@ -185,12 +177,12 @@ int init_send_conn(struct sockaddr_in &robot_addr,
  * @param[in] robot_receiver_fd The file descriptor of the robot-receiver socket
  * @returns client_fd if successful (nonnegative), -1 otherwise
  */
-int init_recv_conn(struct sockaddr_in &robot_addr,
+int init_recv_conn(struct sockaddr_un &robot_addr,
                    int &robot_receiver_fd)
 {
     int client;
     int opt = 1;
-    if ((robot_receiver_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    if ((robot_receiver_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
     {
         perror("socket() error");
         exit(EXIT_FAILURE);
@@ -201,9 +193,6 @@ int init_recv_conn(struct sockaddr_in &robot_addr,
         perror("setsockopt() error");
         exit(EXIT_FAILURE);
     }
-    robot_addr.sin_family = AF_INET;
-    robot_addr.sin_addr.s_addr = INADDR_ANY;
-    robot_addr.sin_port = htons(PORT_RECV);
     if (bind(robot_receiver_fd, (struct sockaddr *)&robot_addr,
              sizeof(robot_addr)) < 0)
     {

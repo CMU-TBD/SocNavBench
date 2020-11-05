@@ -4,7 +4,7 @@ from systems.dubins_v1 import DubinsV1
 from systems.dubins_v2 import DubinsV2
 from systems.dubins_v3 import DubinsV3
 from dotmap import DotMap
-from utils.utils import *
+from utils.utils import color_green, color_reset
 
 
 def create_system_dynamics_params():

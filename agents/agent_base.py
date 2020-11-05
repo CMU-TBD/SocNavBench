@@ -5,7 +5,6 @@ import copy
 import time
 from utils.utils import *
 from objectives.goal_distance import GoalDistance
-from params.central_params import create_agent_params
 from trajectory.trajectory import SystemConfig, Trajectory
 
 
@@ -31,7 +30,9 @@ class AgentBase(object):
         self.keep_episode_running = True
         # cosmetic items (for drawing the trajectories)
         self.trajectory_color = AgentBase.init_colors()
-        # default planner fields, not implemented
+        # initialize some trajectory to be updated via actions
+        self.trajectory = None
+        # default planner fields
         self.init_planner_fields()
 
     def init_planner_fields(self):

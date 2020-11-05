@@ -10,78 +10,23 @@ from trajectory.trajectory import Trajectory
 from utils.fmm_map import FmmMap
 from utils.utils import *
 
-from params.simulator.sbpd_simulator_params import create_params as create_sim_params
-from params.renderer_params import get_seed
-from params.renderer_params import create_params as create_base_params
-from simulators.central_simulator import CentralSimulator
+from params.central_params import create_socnav_params, create_test_map_params
+from simulators.simulator import Simulator
 
-from humans.human import Human
-from humanav.humanav_renderer_multi import HumANavRendererMulti
+from agents.humans.human import Human
 
-from simulators.sim_state import SimState, get_pos3
+from simulators.sim_state import SimState
 
 
 def create_params():
-    p = create_base_params()
-
-    # Set any custom parameters
-
-    p.camera_params.width = 1024
-    p.camera_params.height = 1024
-    p.camera_params.fov_vertical = 75.
-    p.camera_params.fov_horizontal = 75.
-
-    # The camera is assumed to be mounted on a robot at fixed height
-    # and fixed pitch. See humanav/renderer_params.py for more information
-
-    # Tilt the camera 10 degree down from the horizontal axis
-    p.robot_params.camera_elevation_degree = -10
-
-    if p.render_3D:
-        # Can only render rgb and depth then host pc has an available display
-        p.camera_params.modalities = ['rgb', 'disparity']
-    else:
-        p.camera_params.modalities = ['occupancy_grid']
-
-    return p
-
-
-def create_renderer_params():
-    from params.central_params import get_traversible_dir, get_sbpd_data_dir, create_base_params
-    p = DotMap()
-    p.dataset_name = 'sbpd'
-    p.building_name = create_base_params().building_name
-    p.flip = False
-
-    p.camera_params = DotMap(modalities=['occupancy_grid'],  # occupancy_grid, rgb, or depth
-                             width=64,
-                             height=64)
-
-    # The robot is modeled as a solid cylinder
-    # of height, 'height', with radius, 'radius',
-    # base at height 'base' above the ground
-    # The robot has a camera at height
-    # 'sensor_height' pointing at
-    # camera_elevation_degree degrees vertically
-    # from the horizontal plane.
-    p.robot_params = DotMap(radius=18,
-                            base=10,
-                            height=100,
-                            sensor_height=80,
-                            camera_elevation_degree=-45,  # camera tilt
-                            delta_theta=1.0)
-
-    # Traversible dir
-    p.traversible_dir = get_traversible_dir()
-
-    # SBPD Data Directory
-    p.sbpd_data_dir = get_sbpd_data_dir()
-
-    return p
-
-
-def create_test_params():
-    p = DotMap()
+    p = create_socnav_params()
+    # Angle Distance parameters
+    p.goal_angle_objective = DotMap(power=1,
+                                    angle_cost=25.0)
+    p.obstacle_map_params = DotMap(obstacle_map=SBPDMap,
+                                   map_origin_2=[0., 0.],
+                                   sampling_thres=2,
+                                   plotting_grid_steps=100)
     # Obstacle avoidance parameters
     p.avoid_obstacle_objective = DotMap(obstacle_margin0=0.3,
                                         obstacle_margin1=.5,
@@ -100,38 +45,68 @@ def create_test_params():
                                    map_origin_2=[0, 0],
                                    sampling_thres=2,
                                    plotting_grid_steps=100)
-    p.obstacle_map_params.renderer_params = create_renderer_params()
 
     p.personal_space_params = DotMap(
         power=1,
         psc_scale=10
     )
+    # Introduce the robot params
+    from params.central_params import create_robot_params
+    p.robot_params = create_robot_params()
 
-    return p
+    # Introduce the episode params
+    from params.central_params import create_episodes_params, create_datasets_params
+    p.episode_params = create_episodes_params()
+
+    # not testing robot, only simulator + agents
+    p.episode_params.without_robot = True
+
+    # overwrite tests with custom basic test
+    p.episode_params.tests = {}
+    default_name = "test_psc"
+    p.episode_params.tests[default_name] = \
+        DotMap(name=default_name,
+               map_name='Univ',
+               pedestrian_datasets=create_datasets_params([]),
+               datasets_start_t=[],
+               ped_ranges=[],
+               agents_start=[], agents_end=[],
+               robot_start_goal=[[10, 3, 0], [15.5, 8, 0.7]],
+               max_time=30,
+               write_episode_log=False
+               )
+    # definitely wont be rendering this
+    p.render_3D = False
+    # Tilt the camera 10 degree down from the horizontal axis
+    p.robot_params.physical_params.camera_elevation_degree = -10
+
+    if p.render_3D:
+        # Can only render rgb and depth if the host has an available display
+        p.camera_params.modalities = ['rgb', 'disparity']
+    else:
+        p.camera_params.modalities = ['occupancy_grid']
+
+    return create_test_map_params(p)
 
 
-def test_personal_cost_function(sim_state: SimState, plot=False):
+def test_personal_cost_function(sim_state: SimState, plot=False, verbose=False):
     """
     Creating objective points maually, plotting them in the ObjectiveFunction
     class, and then asserting that combined, their sum adds up to the same
     objective cost as the sum of the individual trajectories
     """
     # Create parameters
-    p = create_test_params()
-    from humanav.humanav_renderer_multi import HumANavRendererMulti
-    r = HumANavRendererMulti.get_renderer(
-        p.obstacle_map_params.renderer_params, deepcpy=False)
-    # obtain "resolution and traversible of building"
-    dx_cm, traversible = r.get_config()
+    p = create_params()
+    r, dx_cm, traversible = load_building(p)
 
     obstacle_map = SBPDMap(p.obstacle_map_params,
-                           renderer=0, res=dx_cm, trav=traversible)
+                           renderer=0, res=dx_cm, map_trav=traversible)
     # obstacle_map = SBPDMap(p.obstacle_map_params)
     obstacle_occupancy_grid = obstacle_map.create_occupancy_grid_for_map()
     map_size_2 = obstacle_occupancy_grid.shape[::-1]
 
     # Define a goal position and compute the corresponding fmm map
-    goal_pos_n2 = np.array([[9., 15]])
+    goal_pos_n2 = np.array([[9., 10]])
     fmm_map = FmmMap.create_fmm_map_based_on_goal_position(goal_positions_n2=goal_pos_n2,
                                                            map_size_2=map_size_2,
                                                            dx=0.05,
@@ -156,7 +131,7 @@ def test_personal_cost_function(sim_state: SimState, plot=False):
 
     # Define cost function for personal state
     objectiveP = PersonalSpaceCost(
-        params=p.personal_space_objective)
+        params=p.personal_space_params)
 
     # Define a set of positions and evaluate objective
     pos_nk2 = np.array(
@@ -184,11 +159,14 @@ def test_personal_cost_function(sim_state: SimState, plot=False):
                        expected_overall_objective, atol=1e-2)
 
     # Use sim_state from main
-    ps_cost = objectiveP.evaluate_objective(trajectory, sim_state)
-    print("Personal space cost ", ps_cost)
-    print("Obstacle avoidance cost", expected_objective1)
-    print("Goal distance cost", expected_objective2)
-    print("Angle distance cost", expected_objective3)
+    sim_state_hist = {}
+    sim_state_hist[0] = sim_state
+    ps_cost = objectiveP.evaluate_objective(trajectory, sim_state_hist)
+    if(verbose):
+        print("Personal space cost ", ps_cost)
+        print("Obstacle avoidance cost", expected_objective1)
+        print("Goal distance cost", expected_objective2)
+        print("Angle distance cost", expected_objective3)
 
     # Optionally visualize the traversable and the points on which
     # we compute the objective function
@@ -205,7 +183,7 @@ def test_personal_cost_function(sim_state: SimState, plot=False):
         agents = sim_state.get_all_agents()
 
         for agent_name, agent_vals in agents.items():
-            agent_pos3 = get_pos3(agent_vals)  # (x,y,th)
+            agent_pos3 = agent_vals.get_pos3()  # (x,y,th)
             theta = agent_pos3[2]
             ax.plot(agent_pos3[0], agent_pos3[1], 'g.')
 
@@ -216,48 +194,29 @@ def test_personal_cost_function(sim_state: SimState, plot=False):
 
 def main_test():
     p = create_params()  # used to instantiate the camera and its parameters
-    # TODO: can optimize HumANavRendererMulti renderer when not rendering humans
-    # get the renderer from the camera p
-    r = HumANavRendererMulti.get_renderer(p, deepcpy=False)
-    # obtain "resolution and traversible of building"
-    dx_cm, traversible = r.get_config()
+    test = "test_psc"
+    episode = p.episode_params.tests[test]
 
-    #  TODO this env dict creation should be some sort of function
-    environment = {}
-    environment["map_scale"] = 5 / 100  # dx_m
-    environment["room_center"] = np.array([14, 14., 0.])  # room_center
-    environment["traversibles"] = np.array([traversible])
+    environment, r = construct_environment(p, test, episode, verbose=False)
 
     # construct simulator
-    sim_params = create_sim_params(render_3D=False)
-    simulator = CentralSimulator(sim_params, environment)
-
+    simulator = Simulator(environment, renderer=r,
+                          episode_params=episode, verbose=False)
     # generate and add random humans
-    human_list = []
-    for i in range(4):
+    for _ in range(4):
         # Generates a random human from the environment
         new_human_i = Human.generate_random_human_from_environment(
             environment,
-            generate_appearance=False,
-            radius=5
+            generate_appearance=False
         )
-        # Or specify a human's initial configs with a HumanConfig instance
-        # Human.generate_human_with_configs(Human, fixed_start_goal)
-        human_list.append(new_human_i)
-
-        # Load a random human at a specified state and speed
-        # update human traversible
-        environment["traversibles"] = np.array([traversible])
-
-        # Input human fields into simulator
         simulator.add_agent(new_human_i)
-        print("Generated Random Humans:", i + 1, "\r", end="")
-
+    # initialize simulator fields
+    simulator.init_sim_data(verbose=False)
     # get initial state
-    sim_delT = 0.05
-    sim_state = simulator.save_state(0, sim_delT, 0)
+    sim_state = simulator.save_state(0)
     test_personal_cost_function(sim_state, plot=True)
-    print("%sCost function tests passed!%s" % (color_green, color_reset))
+    print("%sGoal-psc tests passed!%s" %
+          (color_green, color_reset))
 
 
 if __name__ == '__main__':
