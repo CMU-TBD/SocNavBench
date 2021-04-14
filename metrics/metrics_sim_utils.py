@@ -195,7 +195,6 @@ def goal_traversal_ratio(central_sim: Simulator, percentile=False):
     return goal_trav_ratio
 
 
-# pedestrian related
 # TODO incorporate radii
 def time_to_collision(central_sim: Simulator, percentile=False):
     sim_df = central_sim.sim_df
@@ -244,9 +243,12 @@ def time_to_collision(central_sim: Simulator, percentile=False):
             botped_relative_vels * botped_uvectors, axis=1)
 
         # see how long it would take to cover that distance w relative velocity
-        ttc_all = botped_distances / botped_component
+        # infs are fine here because it just means no collision
+        with np.errstate(divide='ignore', invalid='ignore'):
+            ttc_all = (botped_distances - central_sim.robot.get_radius()) / botped_component
+        # ttc_all = botped_distances / botped_component
         # discard negative times since there is no collision
-        ttc_pos = ttc_all[ttc_all > 0]
+        ttc_pos = ttc_all[ttc_all > 0]  # discard negative times since there is no collision
         if len(ttc_pos) == 0:  # no collisions
             ttc[sim_step - 1] = -1
         else:

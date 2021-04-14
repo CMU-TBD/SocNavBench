@@ -226,7 +226,8 @@ class Simulator(SimulatorHelper):
             try:
                 metric_fn = eval("metrics_sim_utils." + metric)
             except (AttributeError, NameError):
-                print("The metric %s is not implemented yet" % metric)
+                import logging
+                logging.info("The metric %s is not implemented yet" % metric)  # will not print anything
                 continue
             metrics_out[metric] = metric_fn(self)
 

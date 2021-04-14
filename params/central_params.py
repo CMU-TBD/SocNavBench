@@ -428,25 +428,20 @@ def create_test_map_params(p=None):
     if(p is None):
         p = DotMap()
     # NOTE: this is very much subject to change with diff maps
+    # currently tuned for Univ
 
-    # goal_pos_n2 = np.array([[9., 15.]])
     p.goal_pos_n2 = np.array([[13.0, 8.0]])
 
-    # pos_nk2 = np.array([[[8., 16.], [8., 12.5], [18., 16.5]]], dtype=np.float32)
-    p.pos_nk2 = np.array(
-        [[[8., 8.], [8., 11.5], [18., 11.5]]], dtype=np.float32)
+    p.pos_nk2 = np.array([[[8., 8.], [8., 11.5],
+                           [18., 11.5]]], dtype=np.float32)
 
-    # p.test_goal_ang_obj_ans = [19.634956, 29.616005, 74.31618]
-    p.test_goal_ang_obj_ans = [0., 18.15444529, 78.53981415]
+    p.test_goal_ang_obj_ans = [0., 15.28835, 63.25501]
 
-    # p.test_goal_dist_ans = [49.088074, 179.12201, 2071.5808]
-    p.test_goal_dist_ans = [6.17855224e+02, 9.27975445e+02, 2.50000000e+07]
+    p.test_goal_dist_ans = [617.85522392, 926.99274879, 926.98999036]
 
-    # p.test_obst_map_ans = [1.252921, 1.5730935, 1.7213388]
-    p.test_obst_map_ans = [3.33432937, 0.07499108, -0.025]
+    p.test_obst_map_ans = [3.30817986, 0.67457855, 0.62133884]
 
-    # p.test_obst = [0., 0., 0.]
-    p.test_obs_obj_ans = [0., 112.8953653, 172.26562524]
+    p.test_obs_obj_ans = [0., 0., 0.]
 
     return p
 

@@ -127,16 +127,10 @@ class Foo(object):
 """BEGIN SOCNAV UTILS"""
 
 
-def load_building(p):
+def load_building(p, force_rebuild=False):
     from socnav.socnav_renderer import SocNavRenderer
-    try:
-        # get the renderer from the camera p
-        r = SocNavRenderer.get_renderer(p)
-        # obtain "resolution and traversible of building"
-        dx_cm, traversible = r.get_config()
-    except FileNotFoundError:  # did not find traversible.pkl for this map
-        print("%sUnable to find traversible, reloading building%s" %
-              (color_red, color_reset))
+    if force_rebuild:
+        print("%sForce reloading building%s" % (color_yellow, color_reset))
         # it *should* have been the case that the user did not load the meshes
         assert(p.building_params.load_meshes == False)
         p2 = copy.deepcopy(p)
@@ -144,6 +138,22 @@ def load_building(p):
         r = SocNavRenderer.get_renderer(p2)
         # obtain "resolution and traversible of building"
         dx_cm, traversible = r.get_config()
+    else:
+        try:
+            # get the renderer from the camera p
+            r = SocNavRenderer.get_renderer(p)
+            # obtain "resolution and traversible of building"
+            dx_cm, traversible = r.get_config()
+        except FileNotFoundError:  # did not find traversible.pkl for this map
+            print("%sUnable to find traversible, reloading building%s" %
+                  (color_red, color_reset))
+            # it *should* have been the case that the user did not load the meshes
+            assert(p.building_params.load_meshes == False)
+            p2 = copy.deepcopy(p)
+            p2.building_params.load_meshes = True
+            r = SocNavRenderer.get_renderer(p2)
+            # obtain "resolution and traversible of building"
+            dx_cm, traversible = r.get_config()
     return r, dx_cm, traversible
 
 
