@@ -96,7 +96,7 @@ def test_piecewise_spline(visualize=False):
     for s in states:
         spline_traj = Spline3rdOrder(dt=dt, k=k, n=n, params=p.spline_params)
         # Keep track of old trajectory
-        if(next_config is not None):
+        if next_config is not None:
             # Rewrite the previous state config with the 'old' next one
             prev_config = next_config
         # Generate position
@@ -118,7 +118,7 @@ def test_piecewise_spline(visualize=False):
                                    )
         # Append to the trajectory if a new trajectory can be constructed
         # Note that any spline needs a 'previous' and 'next' state
-        if(prev_config is not None):
+        if prev_config is not None:
             spline_traj.fit(prev_config, next_config, factors=None)
             spline_traj.eval_spline(ts_nk, calculate_speeds=True)
             splines.append(spline_traj)
@@ -126,12 +126,12 @@ def test_piecewise_spline(visualize=False):
     # Loop through all calculated splines to combine them together into a singular one
     final_spline = None
     for i, s in enumerate(splines):
-        if(final_spline is not None):
+        if final_spline is not None:
             final_spline.append_along_time_axis(s)
-        if(i == 0):
+        if i == 0:
             # For first spline
             final_spline = s
-    if(visualize):
+    if visualize:
         fig = plt.figure()
         fig, ax = plt.subplots(4, 1, figsize=(5, 15), squeeze=False)
         final_spline.render_multi(

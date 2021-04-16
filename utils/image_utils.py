@@ -1,11 +1,9 @@
 import os
 import numpy as np
-from utils.utils import *
+from utils.utils import touch, natural_sort
+from utils.utils import color_red, color_green, color_reset
 import glob
 import imageio
-import matplotlib as mpl
-mpl.use('Agg')  # for rendering without a display
-import matplotlib.pyplot as plt
 
 
 def plot_image_observation(ax, img_mkd, size=None):
@@ -30,11 +28,11 @@ def gather_metadata(ppm: float, a, plot_start_goal: bool, start: list,
     collided = a.get_collided() or (a.get_collision_cooldown() > 0)
     markersize = a.get_radius() * ppm
     pos_3 = a.get_current_config().to_3D_numpy()
-    if(traj_col == ""):
+    if traj_col == "":
         traj_col = a.get_color()
     start_3 = None
     goal_3 = None
-    if(plot_start_goal):
+    if plot_start_goal:
         try:
             # set the start and goal if it exists in the agent, else use the provided
             start_3 = a.get_start_config().to_3D_numpy()
@@ -55,7 +53,7 @@ def gather_colors_and_labels(label: str, indx: int):
     draw_label = None
     sl = None
     gl = None
-    if(indx == 0):
+    if indx == 0:
         # Only add label on the first humans
         draw_label = label
         sl = label + " start"
@@ -74,7 +72,7 @@ def plot_agent_dict(ax, ppm: float, agents_dict: dict, label='Agent', normal_col
                             start_3, goal_3, traj_color)
 
         # render agent's trajectory
-        if(plot_trajectory and a.get_trajectory()):
+        if plot_trajectory and a.get_trajectory():
             a.get_trajectory().render(ax, freq=1, color=traj_col,
                                       alpha=alpha, plot_quiver=False,
                                       clip=traj_clip, linewidth=ppm / 8.2)
@@ -84,7 +82,7 @@ def plot_agent_dict(ax, ppm: float, agents_dict: dict, label='Agent', normal_col
             gather_colors_and_labels(label, i)
 
         # draw little dot in the middle of the collided agents if collision occurs
-        if(collided):
+        if collided:
             ax.plot(pos_3[0], pos_3[1], collided_color, markersize=ms,
                     label=draw_label)
             ax.plot(pos_3[0], pos_3[1], normal_color, markersize=ms * 0.4,
@@ -95,14 +93,14 @@ def plot_agent_dict(ax, ppm: float, agents_dict: dict, label='Agent', normal_col
 
         # plot collision indicator
         # plot start + goal
-        if(plot_start_goal):
+        if plot_start_goal:
             ax.plot(start_3[0], start_3[1], start_col,
                     markersize=ms, label=sl, alpha=0.5)
             ax.plot(goal_3[0], goal_3[1], goal_col,
                     markersize=2 * ms, marker="*", label=gl, alpha=0.8)
 
         # plot a surrounding "force field" around the agent
-        if(plot_quiver):
+        if plot_quiver:
             # Agent heading
             s = 0.5
             ax.quiver(pos_3[0], pos_3[1], s * np.cos(pos_3[2]), s * np.sin(pos_3[2]),
@@ -182,7 +180,7 @@ def plot_topview(ax, extent, traversible, human_traversible, camera_pos_13,
                     0.5, "1m", fontsize=14, verticalalignment='top')
 
 
-def render_scene(p, rgb_image_1mk3, depth_image_1mk1, environment,
+def render_scene(plt, p, rgb_image_1mk3, depth_image_1mk1, environment,
                  camera_pos_13, pedestrians, robots,
                  sim_t: float, wall_t: float, filename: str, with_zoom=False):
     """Plots a single frame from information provided about the world state
@@ -277,12 +275,7 @@ def render_scene(p, rgb_image_1mk3, depth_image_1mk1, environment,
         touch(full_file_name)  # Just as the bash command
 
     fig.savefig(full_file_name, bbox_inches='tight', pad_inches=0)
-    fig.clear()
-    plt.cla()
-    plt.clf()
-    plt.close('all')
-    plt.close(fig)
-    del fig
+    plt.close()
     if p.verbose_printing:
         print('\033[32m', "Successfully rendered:",
               full_file_name, '\033[0m')
@@ -300,18 +293,21 @@ def render_rgb_and_depth(r, camera_pos_13, dx_m: float, human_visible=True):
     Returns:
         rgb_image_1mk3, depth_image_1mk1: the rgb and depth images respectively
     """
-
     # Convert from real world units to grid world units
     camera_grid_world_pos_12 = camera_pos_13[:, :2] / dx_m
 
     # Render RGB and Depth Images. The shape of the resulting
     # image is (1 (batch), m (width), k (height), c (number channels))
-    rgb_image_1mk3 = r._get_rgb_image(
-        camera_grid_world_pos_12, camera_pos_13[:, 2:3], human_visible=True)
+    rgb_image_1mk3 = r._get_rgb_image(camera_grid_world_pos_12,
+                                      camera_pos_13[:, 2:3],
+                                      human_visible=True)
 
-    depth_image_1mk1, _, _ = r._get_depth_image(
-        camera_grid_world_pos_12, camera_pos_13[:, 2:3], xy_resolution=.05,
-        map_size=1500, pos_3=camera_pos_13[0, :3], human_visible=True)
+    depth_image_1mk1, _, _ = r._get_depth_image(camera_grid_world_pos_12,
+                                                camera_pos_13[:, 2:3],
+                                                xy_resolution=0.05,
+                                                map_size=1500,
+                                                pos_3=camera_pos_13[0, :3],
+                                                human_visible=True)
 
     return rgb_image_1mk3, depth_image_1mk1
 

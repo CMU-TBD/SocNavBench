@@ -1,9 +1,7 @@
 import numpy as np
-import sys
-import os
 import copy
-import time
-from utils.utils import *
+from utils.utils import generate_name, euclidean_dist2
+from utils.angle_utils import angle_normalize
 from objectives.goal_distance import GoalDistance
 from trajectory.trajectory import SystemConfig, Trajectory
 
@@ -34,6 +32,8 @@ class AgentBase(object):
         self.trajectory = None
         # default planner fields
         self.init_planner_fields()
+        # no params yet
+        self.params = None
 
     def init_planner_fields(self):
         self.obj_fn = None
@@ -41,6 +41,7 @@ class AgentBase(object):
         self.fmm_map = None
         self.system_dynamics = None
         self.planner = None
+        self.planner_data = None
         self.vehicle_data = None
 
     # Getters for the Agent class
@@ -79,10 +80,7 @@ class AgentBase(object):
         return self.end_acting
 
     def get_collided(self):
-        return self.get_end_acting() and \
-            ((not self.keep_episode_running and
-              self.termination_cause == "Pedestrian Collision") or
-             self.termination_cause == "Obstacle Collision")
+        return "Collision" in self.termination_cause
 
     def get_completed(self):
         return self.get_end_acting() and self.termination_cause == "Success"
@@ -91,11 +89,15 @@ class AgentBase(object):
         return self.collision_cooldown
 
     def get_radius(self):
-        assert(hasattr(self, "params"))
         return self.params.radius
 
     def get_color(self):
         return self.trajectory_color
+
+    @staticmethod
+    def generate():
+        # used to spawn all the agents into the simulator, defined per class
+        pass
 
     @staticmethod
     def init_colors():
@@ -133,6 +135,7 @@ class AgentBase(object):
                 return True
         # reached here means no collisions have occured, therefore there is no latest_collider
         self.latest_collider = ""
+        self.termination_cause = "Timeout"  # no more collisions with these group members
         return False
 
     def check_collisions(self, world_state, include_agents=True, include_robots=True):
@@ -171,7 +174,6 @@ class AgentBase(object):
                 if time_idxs[i] != np.inf:
                     self.termination_cause = condition
                     self.collision_point_k = termination_time
-                    color = termination_cause_to_color(condition)
             self.trajectory.clip_along_time_axis(termination_time)
             if self.planner is not None and self.planner_data is not None:
                 self.planner_data, planner_data_last_step, last_step_data_valid = \
@@ -336,19 +338,21 @@ class AgentBase(object):
             x_ref_nkd, u_ref_nkf = self.system_dynamics.parse_trajectory(
                 trajectory_ref)
             x_next_n1d = x0_n1d * 1.
+            angle_norm = angle_normalize  # shorter function name
             for t in range(T):
                 x_ref_n1d, u_ref_n1f = x_ref_nkd[:,
                                                  t:t + 1], u_ref_nkf[:, t:t + 1]
                 error_t_n1d = x_next_n1d - x_ref_n1d
 
+                norm_angle = \
+                    angle_norm(error_t_n1d[:, :, angle_dims:angle_dims + 1])
+
                 # TODO: Currently calling numpy() here as tfe.DEVICE_PLACEMENT_SILENT
                 # is not working to place non-gpu ops (i.e. mod) on the cpu
                 # turning tensors into numpy arrays is a hack around this.
-                error_t_n1d = np.concatenate([error_t_n1d[:, :, :angle_dims],
-                                              angle_normalize(
-                                             error_t_n1d[:, :, angle_dims:angle_dims + 1]),
-                    error_t_n1d[:, :, angle_dims + 1:]],
-                    axis=2)
+                error_t_n1d = np.concatenate([error_t_n1d[:, :, :angle_dims], norm_angle,
+                                              error_t_n1d[:, :, angle_dims + 1:]],
+                                             axis=2)
                 fdback_nf1 = np.matmul(K_array_nTfd[:, t],
                                        np.transpose(error_t_n1d, perm=[0, 2, 1]))
                 u_n1f = u_ref_n1f + np.transpose(k_array_nTf1[:, t] + fdback_nf1,

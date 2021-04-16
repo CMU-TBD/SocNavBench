@@ -303,6 +303,8 @@ def create_simulator_params(verbose=True):
     p.max_frames = sim_p.getint('max_frames')
     # bound by 0 <= X <= 1
     p.fps_scale_down = max(0.0, min(1.0, sim_p.getfloat('fps_scale_down')))
+    # bound by 0 <= X
+    p.num_render_cores = max(0, sim_p.getint('num_render_cores'))
     # sbpd simulator params:
     p.render_3D = p.socnav_params.render_3D
     # Load obstacle map params
@@ -333,7 +335,9 @@ def create_agent_params(with_planner=False, with_obstacle_map=False):
 
     p.record_video = agent_p2.getboolean('record_video')
     p.save_trajectory_data = agent_p2.getboolean('save_trajectory_data')
-    p.collision_cooldown_amnt = agent_p.getint('collision_cooldown_amnt')
+    dt = user_config["simulator_params"].getfloat("dt")
+    p.collision_cooldown_amnt = int(
+        agent_p.getfloat('collision_cooldown_amnt') / dt)
     p.pause_on_collide = agent_p.getboolean('pause_on_collide')
     assert(p.collision_cooldown_amnt > 0)
     # Load system dynamics params
@@ -425,7 +429,7 @@ def create_obstacle_map_params():
 
 
 def create_test_map_params(p=None):
-    if(p is None):
+    if p is None:
         p = DotMap()
     # NOTE: this is very much subject to change with diff maps
     # currently tuned for Univ
@@ -489,10 +493,10 @@ def get_path_to_socnav():
     # PATH_TO_HUMANAV = config['base_params']['base_directory']
     # or just use the relative path
     PATH_TO_HUMANAV = os.getcwd()
-    if(not os.path.exists(PATH_TO_HUMANAV)):
+    if not os.path.exists(PATH_TO_HUMANAV):
         # the main directory should be the parent of params/central_params.py
         PATH_TO_HUMANAV = os.path.join(os.path.dirname(__file__), '..')
-        if(os.path.exists(PATH_TO_HUMANAV)):
+        if os.path.exists(PATH_TO_HUMANAV):
             return PATH_TO_HUMANAV
         print('\033[31m', "ERROR: Failed to find tbd_SocNavBench installation at",
               PATH_TO_HUMANAV, '\033[0m')
@@ -502,7 +506,7 @@ def get_path_to_socnav():
 
 def base_data_dir():
     PATH_TO_BASE_DIR = os.path.join(get_path_to_socnav(), 'wayptnav_data')
-    if(not os.path.exists(PATH_TO_BASE_DIR)):
+    if not os.path.exists(PATH_TO_BASE_DIR):
         print('\033[31m', "ERROR: Failed to find the wayptnav_data dir at",
               PATH_TO_BASE_DIR, '\033[0m')
         os._exit(1)  # Failure condition
@@ -512,7 +516,7 @@ def base_data_dir():
 def get_sbpd_data_dir():
     PATH_TO_SBPD = os.path.join(
         get_path_to_socnav(), 'sd3dis/stanford_building_parser_dataset')
-    if(not os.path.exists(PATH_TO_SBPD)):
+    if not os.path.exists(PATH_TO_SBPD):
         print('\033[31m', "ERROR: Failed to find sd3dis installation at",
               PATH_TO_SBPD, '\033[0m')
         os._exit(1)  # Failure condition
@@ -521,7 +525,7 @@ def get_sbpd_data_dir():
 
 def get_traversible_dir():
     PATH_TO_TRAVERSIBLES = os.path.join(get_sbpd_data_dir(), 'traversibles')
-    if(not os.path.exists(PATH_TO_TRAVERSIBLES)):
+    if not os.path.exists(PATH_TO_TRAVERSIBLES):
         print('\033[31m', "ERROR: Failed to find traversible directory at",
               PATH_TO_TRAVERSIBLES, '\033[0m')
         os._exit(1)  # Failure condition
@@ -531,7 +535,7 @@ def get_traversible_dir():
 def get_surreal_mesh_dir():
     PATH_TO_SURREAL_MESH = os.path.join(
         get_path_to_socnav(), 'surreal/code/human_meshes')
-    if(not os.path.exists(PATH_TO_SURREAL_MESH)):
+    if not os.path.exists(PATH_TO_SURREAL_MESH):
         print('\033[31m', "ERROR: Failed to find SURREAL meshes at",
               PATH_TO_SURREAL_MESH, '\033[0m')
         os._exit(1)  # Failure condition
@@ -541,7 +545,7 @@ def get_surreal_mesh_dir():
 def get_surreal_texture_dir():
     PATH_TO_SURREAL_TEXTURES = os.path.join(
         get_path_to_socnav(), 'surreal/code/human_textures')
-    if(not os.path.exists(PATH_TO_SURREAL_TEXTURES)):
+    if not os.path.exists(PATH_TO_SURREAL_TEXTURES):
         print('\033[31m', "ERROR: Failed to find SURREAL textures at",
               PATH_TO_SURREAL_TEXTURES, '\033[0m')
         os._exit(1)  # Failure condition

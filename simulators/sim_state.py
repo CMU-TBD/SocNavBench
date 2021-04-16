@@ -1,6 +1,7 @@
 import numpy as np
 import json
-from utils.utils import *
+from utils.utils import generate_config_from_pos_3, euclidean_dist2
+from utils.utils import color_red, color_reset
 
 """ These are smaller "wrapper" classes that are visible by other
 gen_agents/humans and saved during state deepcopies
@@ -13,7 +14,7 @@ class AgentState():
                  current_config=None, trajectory=None, collided=False, end_acting=False,
                  collision_cooldown=-1, radius=0, color=None):
         """Initialize an AgentState with either an Agent instance (a) or all the individual fields"""
-        if(a is not None):
+        if a is not None:
             self.name = a.get_name()
             self.goal_config = a.get_goal_config()
             # TODO: get start/current configs from self.trajectory
@@ -96,12 +97,12 @@ class AgentState():
     @ staticmethod
     def from_json(json_str: dict):
         name = json_str['name']
-        if('start_config' in json_str.keys()):
+        if 'start_config' in json_str.keys():
             start_config = \
                 generate_config_from_pos_3(json_str['start_config'])
         else:
             start_config = None
-        if('goal_config' in json_str.keys()):
+        if 'goal_config' in json_str.keys():
             goal_config = \
                 generate_config_from_pos_3(json_str['goal_config'])
         else:
@@ -238,11 +239,11 @@ class SimState():
         new_state.pedestrians = \
             SimState.init_agent_dict(json_str['pedestrians'])
         new_state.robots = SimState.init_agent_dict(json_str['robots'])
-        new_state.sim_t: float = json_str['sim_t']
-        new_state.delta_t: float = json_str['delta_t']
-        new_state.robot_on: bool = json_str['robot_on']
-        new_state.episode_name: str = json_str['episode_name']
-        new_state.episode_max_time: str = json_str['episode_max_time']
+        new_state.sim_t = json_str['sim_t']
+        new_state.delta_t = json_str['delta_t']
+        new_state.robot_on = json_str['robot_on']
+        new_state.episode_name = json_str['episode_name']
+        new_state.episode_max_time = json_str['episode_max_time']
         new_state.wall_t = None
         new_state.ped_collider = ""
         return new_state
@@ -303,11 +304,11 @@ def compute_next_vel(sim_state_prev, sim_state_now, agent_name: str):
 
 
 def compute_agent_state_velocity(sim_states: list, agent_name: str):
-    if(len(sim_states) > 1):  # need at least two to compute differences in positions
-        if(agent_name in get_all_agents(sim_states[-1]).keys()):
+    if len(sim_states) > 1:  # need at least two to compute differences in positions
+        if agent_name in get_all_agents(sim_states[-1]).keys():
             agent_velocities = []
             for i in range(len(sim_states)):
-                if(i > 0):
+                if i > 0:
                     prev_sim_s = sim_states[i - 1]
                     now_sim_s = sim_states[i]
                     speed = compute_next_vel(prev_sim_s, now_sim_s, agent_name)
@@ -323,14 +324,14 @@ def compute_agent_state_velocity(sim_states: list, agent_name: str):
 
 
 def compute_agent_state_acceleration(sim_states: list, agent_name: str, velocities: list = None):
-    if(len(sim_states) > 1):  # need at least two to compute differences in velocities
+    if len(sim_states) > 1:  # need at least two to compute differences in velocities
         # optionally compute velocities as well
-        if(velocities is None):
+        if velocities is None:
             velocities = compute_agent_state_velocity(sim_states, agent_name)
-        if(agent_name in get_all_agents(sim_states[-1]).keys()):
+        if agent_name in get_all_agents(sim_states[-1]).keys():
             agent_accels = []
             for i, this_vel in enumerate(velocities):
-                if(i > 0):
+                if i > 0:
                     # compute delta_t between sim states
                     sim_st_now = sim_states[i]
                     sim_st_prev = sim_states[i - 1]
@@ -340,7 +341,7 @@ def compute_agent_state_acceleration(sim_states: list, agent_name: str, velociti
                     # calculate speeds over time
                     accel = (this_vel - last_vel) / delta_t
                     agent_accels.append(accel)
-                    if(i == len(sim_states) - 1):
+                    if i == len(sim_states) - 1:
                         # last element gets no acceleration
                         break
             return agent_accels

@@ -9,7 +9,6 @@ from objectives.personal_space_cost import PersonalSpaceCost
 
 from trajectory.trajectory import SystemConfig, Trajectory
 from utils.fmm_map import FmmMap
-from utils.utils import *
 from agents.agent_base import AgentBase
 from params.central_params import create_agent_params
 
@@ -34,19 +33,19 @@ class Agent(AgentBase):
                         with_objectives: bool = True,
                         keep_episode_running: bool = False):
         """ Initializes important fields for the Simulator"""
-        if(not hasattr(self, "params")):
+        if self.params is None:
             self.params = create_agent_params(with_planner=with_planner)
         self.obstacle_map = sim_map
-        if(with_objectives):
+        if with_objectives:
             # Initialize Fast-Marching-Method map for agent's pathfinding
             self.obj_fn = Agent._init_obj_fn(self)
             Agent._init_fmm_map(self)
-        if(with_planner):
+        if with_planner:
             # Initialize planner and vehicle data
             self.planned_next_config = copy.deepcopy(self.current_config)
             self.planner = Agent._init_planner(self)
             self.vehicle_data = self.planner.empty_data_dict()
-        if(with_system_dynamics):
+        if with_system_dynamics:
             # Initialize system dynamics and planner fields
             self.system_dynamics = Agent._init_system_dynamics(self)
         # the point in the trajectory where the agent collided
@@ -60,6 +59,12 @@ class Agent(AgentBase):
 
     def update_world(self, state):
         self.world_state = state
+
+    def just_collided_with_robot(self, robot):
+        collision = self.get_collided()
+        with_robot = (self.latest_collider == robot.get_name())
+        just_now = self.get_collision_cooldown() == self.params.collision_cooldown_amnt - 1
+        return collision and with_robot and just_now
 
     @staticmethod
     def set_sim_dt(sim_dt):
@@ -156,7 +161,7 @@ class Agent(AgentBase):
         """
         # The 'plan' is open loop control
         if 'trajectory' not in self.planner_data.keys():
-            trajectory, vel_cmds = \
+            trajectory, _ = \
                 Agent.apply_control_open_loop(self, self.current_config,
                                               self.planner_data['optimal_control_nk2'],
                                               T=self.params.control_horizon - 1,
@@ -171,8 +176,8 @@ class Agent(AgentBase):
                                                              self.params.control_horizon,
                                                              repeat_second_to_last_speed=True)
             elif self.system_dynamics.simulation_params.simulation_mode == 'realistic':
-                trajectory, vel_cmds = \
-                    Agent.apply_control_closed_loop(self.current_config,
+                trajectory, _ = \
+                    Agent.apply_control_closed_loop(self, self.current_config,
                                                     self.planner_data['spline_trajectory'],
                                                     self.planner_data['k_nkf1'],
                                                     self.planner_data['K_nkfd'],

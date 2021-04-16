@@ -143,7 +143,7 @@ def test_custom_dubins_v1(plot=False):
 
     trajectory = db.simulate_T(state_113, ctrl_1k2, T=k)
     state_1k3, _ = db.parse_trajectory(trajectory)
-    if(plot):
+    if plot:
         fig = plt.figure()
         ax = fig.add_subplot(111)
         xs, ys, ts = state_1k3[0, :, 0], state_1k3[0, :, 1], state_1k3[0, :, 2]

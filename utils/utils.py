@@ -84,7 +84,6 @@ class Timer():
         else:
             if self.start_time == 0:
                 logging.error('Timer not started by calling tic().')
-            t = time.time()
             diff = time.time() - self.start_time
             self.total_time += diff
             self.calls += 1.
@@ -342,13 +341,13 @@ def subplot2(plt, Y_X, sz_y_sz_x=(10, 10), space_y_x=(0.1, 0.1), T=False):
 
 
 def termination_cause_to_color(cause: str):
-    if(cause == "Success"):
+    if cause == "Success":
         return "green"
-    if(cause == "Pedestrian Collision"):
+    if cause == "Pedestrian Collision":
         return "red"
-    if(cause == "Obstacle Collision"):
+    if cause == "Obstacle Collision":
         return "orange"
-    if(cause == "Timeout"):
+    if cause == "Timeout":
         return "blue"
     return None
 
@@ -369,7 +368,7 @@ def color_print(color: str):
 
 
 def iter_print(l):
-    if(isinstance(l[0], float)):
+    if isinstance(l[0], float):
         return ','.join(["{0: 0.2f}".format(i) for i in l])
     # return string
     return ','.join([str(i) for i in l])
@@ -435,7 +434,7 @@ def within_traversible_with_radius(new_pos: np.array, traversible: np.array, map
     """
     for i in range(2 * radius):
         for j in range(2 * radius):
-            if(stroked_radius):
+            if stroked_radius:
                 if not((i == 0 or i == radius - 1 or j == 0 or j == radius - 1)):
                     continue
             pos_x = int(new_pos[0] / map_scale) - radius + i

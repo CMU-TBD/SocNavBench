@@ -1,4 +1,3 @@
-import numpy as np
 import random
 from dotmap import DotMap
 # Humanav
@@ -8,7 +7,7 @@ from agents.robot_agent import RobotAgent
 # Planner + Simulator:
 from simulators.simulator import Simulator
 from params.central_params import get_seed, create_socnav_params
-from utils.utils import construct_environment, generate_config_from_pos_3
+from utils.utils import construct_environment
 
 # seed the random number generator
 random.seed(get_seed())
@@ -62,32 +61,6 @@ def create_params():
     return p
 
 
-def generate_auto_humans(starts, goals, simulator, environment, p, r):
-    """
-    Generate and add num_humans number of randomly generated humans to the simulator
-    """
-    num_gen_humans = min(len(starts), len(goals))
-    print("Generated Auto Humans:", num_gen_humans)
-    from agents.humans.human_configs import HumanConfigs
-    for i in range(num_gen_humans):
-        start_config = generate_config_from_pos_3(starts[i])
-        goal_config = generate_config_from_pos_3(goals[i])
-        start_goal_configs = HumanConfigs(start_config, goal_config)
-        # Generates a random human from the environment
-        new_human_i = Human.generate_human_with_configs(
-            start_goal_configs,
-            generate_appearance=p.render_3D
-        )
-        # update renderer and get human traversible if it exists
-        if p.render_3D:
-            r.add_human(new_human_i)
-            environment["human_traversible"] = \
-                np.array(r.get_human_traversible())
-
-        # Input human fields into simulator
-        simulator.add_agent(new_human_i)
-
-
 def test_socnav():
     """
     Code for loading random humans into the environment
@@ -107,35 +80,35 @@ def test_socnav():
         """
         simulator = Simulator(environment, renderer=r, episode_params=episode)
         """Generate the autonomous human agents from the episode"""
-        generate_auto_humans(episode.agents_start, episode.agents_end,
-                             simulator, environment, p, r)
+        Human.generate(simulator, p, episode.agents_start, episode.agents_end,
+                       environment, r)
 
         """Add the prerecorded humans to the simulator"""
         for i, dataset in enumerate(episode.pedestrian_datasets):
             dataset_start_t = episode.datasets_start_t[i]
             dataset_ped_range = episode.ped_ranges[i]
-            PrerecordedHuman.generate_pedestrians(simulator, p,
-                                                  max_time=episode.max_time,
-                                                  start_t=dataset_start_t,
-                                                  ped_range=dataset_ped_range,
-                                                  dataset=dataset
-                                                  )
+            PrerecordedHuman.generate(simulator, p, environment, r,
+                                      max_time=episode.max_time,
+                                      start_t=dataset_start_t,
+                                      ped_range=dataset_ped_range,
+                                      dataset=dataset
+                                      )
 
         """Generate the robot(s) for the simulator"""
         if not p.episode_params.without_robot:
-            if(len(episode.robot_start_goal) == 0):
+            if len(episode.robot_start_goal) == 0:
                 # randomly generate robot
                 robot_agent = RobotAgent.random_from_environment(environment)
+                simulator.add_agent(robot_agent)
             else:
-                # create constant start/goal for testing purposes
-                r_start = episode.robot_start_goal[0]
-                r_goal = episode.robot_start_goal[1]
-                from agents.humans.human_configs import HumanConfigs
-                start_conf = generate_config_from_pos_3(r_start)
-                goal_conf = generate_config_from_pos_3(r_goal)
-                configs = HumanConfigs(start_conf, goal_conf)
-                robot_agent = RobotAgent.generate_robot(configs)
-            simulator.add_agent(robot_agent)
+                RobotAgent.generate(simulator, p, episode.robot_start_goal)
+                # r_start = episode.robot_start_goal[0]
+                # r_goal = episode.robot_start_goal[1]
+                # from agents.humans.human_configs import HumanConfigs
+                # start_conf = generate_config_from_pos_3(r_start)
+                # goal_conf = generate_config_from_pos_3(r_goal)
+                # configs = HumanConfigs(start_conf, goal_conf)
+                # robot_agent = RobotAgent.generate_robot(configs)
         # run simulation
         simulator.simulate()
         # render the simulation result

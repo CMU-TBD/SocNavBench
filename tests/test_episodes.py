@@ -2,13 +2,12 @@ import numpy as np
 import random
 # Humanav
 from agents.humans.human import Human
-from agents.humans.recorded_human import PrerecordedHuman
-from agents.humans.human_configs import HumanConfigs
 from agents.robot_agent import RobotAgent
+from agents.humans.recorded_human import PrerecordedHuman
 # Planner + Simulator:
 from simulators.simulator import Simulator
 from params.central_params import get_seed, create_socnav_params
-from utils.utils import construct_environment, generate_config_from_pos_3
+from utils.utils import construct_environment
 
 # seed the random number generator
 random.seed(get_seed())
@@ -44,43 +43,6 @@ def create_params():
     return p
 
 
-def generate_robot(robot_start_goal, simulator):
-    assert(len(robot_start_goal) == 2)
-    rob_start = generate_config_from_pos_3(robot_start_goal[0])
-    rob_goal = generate_config_from_pos_3(robot_start_goal[1])
-    robot_configs = HumanConfigs(rob_start, rob_goal)
-    robot_agent = RobotAgent.generate_robot(
-        robot_configs
-    )
-    simulator.add_agent(robot_agent)
-
-
-def generate_auto_humans(starts, goals, simulator, environment, p, r):
-    """
-    Generate and add num_humans number of randomly generated humans to the simulator
-    """
-    num_gen_humans = min(len(starts), len(goals))
-    print("Generating Auto Humans:", num_gen_humans)
-    for i in range(num_gen_humans):
-        start_config = generate_config_from_pos_3(starts[i])
-        goal_config = generate_config_from_pos_3(goals[i])
-        start_goal_configs = HumanConfigs(start_config, goal_config)
-        # Generates a random human from the environment
-        new_human_i = Human.generate_human_with_configs(
-            start_goal_configs,
-            generate_appearance=p.render_3D
-        )
-
-        # update renderer and get human traversible if it exists
-        if p.render_3D:
-            r.add_human(new_human_i)
-            environment["human_traversible"] = \
-                np.array(r.get_human_traversible())
-
-        # Input human fields into simulator
-        simulator.add_agent(new_human_i)
-
-
 def test_episodes():
     """
     Code for loading a random human into the environment
@@ -103,23 +65,23 @@ def test_episodes():
         simulator = Simulator(environment, renderer=r, episode_params=episode)
 
         """Generate the autonomous human agents from the episode"""
-        generate_auto_humans(episode.agents_start, episode.agents_end,
-                             simulator, environment, p, r)
+        Human.generate(simulator, p, episode.agents_start, episode.agents_end,
+                       environment, r)
 
         """Generate the robot in the simulator"""
         if not p.episode_params.without_robot:
-            generate_robot(episode.robot_start_goal, simulator)
+            RobotAgent.generate(simulator, p, episode.robot_start_goal)
 
         """Add the prerecorded humans to the simulator"""
         for i, dataset in enumerate(episode.pedestrian_datasets):
             dataset_start_t = episode.datasets_start_t[i]
             dataset_ped_range = episode.ped_ranges[i]
-            PrerecordedHuman.generate_pedestrians(simulator, p,
-                                                  max_time=episode.max_time,
-                                                  start_t=dataset_start_t,
-                                                  ped_range=dataset_ped_range,
-                                                  dataset=dataset
-                                                  )
+            PrerecordedHuman.generate(simulator, p, environment, r,
+                                      max_time=episode.max_time,
+                                      start_t=dataset_start_t,
+                                      ped_range=dataset_ped_range,
+                                      dataset=dataset
+                                      )
 
         # run simulation
         simulator.simulate()

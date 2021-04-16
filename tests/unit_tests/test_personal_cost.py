@@ -162,7 +162,7 @@ def test_personal_cost_function(sim_state: SimState, plot=False, verbose=False):
     sim_state_hist = {}
     sim_state_hist[0] = sim_state
     ps_cost = objectiveP.evaluate_objective(trajectory, sim_state_hist)
-    if(verbose):
+    if verbose:
         print("Personal space cost ", ps_cost)
         print("Obstacle avoidance cost", expected_objective1)
         print("Goal distance cost", expected_objective2)

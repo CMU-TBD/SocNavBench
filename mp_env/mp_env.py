@@ -301,8 +301,8 @@ class Building():
             lookat_xyz = lookat_xyz + camera_xyz[0, :]
             self.r_obj.position_camera(camera_xyz[0, :].tolist(), lookat_xyz.tolist(),
                                        [0.0, 0.0, 1.0])
-            img = self.r_obj.render(
-                modality, take_screenshot=True, output_type=0)
+            img = self.r_obj.render(modality, take_screenshot=True,
+                                    output_type=0)
             img = [x for x in img if x is not None]
             img = np.concatenate(img, axis=2).astype(np.float32)
             if perturb[i, 3] > 0:
