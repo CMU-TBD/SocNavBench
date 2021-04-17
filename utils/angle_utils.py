@@ -56,7 +56,7 @@ def padded_rotation_matrix(theta_n11, shape, lower_identity=False):
         # identity_block_nkee = np.eye(e, dtype=dtype).reshape(n, k)
         identity_block_nkee = []
         identity_block_nkee.append([])
-        for i in range(k):
+        for _ in range(k):
             identity_block_nkee[0].append([[1]])
         identity_block_nkee = np.array(identity_block_nkee, dtype=dtype)
         remaining_rows_nkde = np.concatenate([np.zeros((n, k, 2, e), dtype=dtype),

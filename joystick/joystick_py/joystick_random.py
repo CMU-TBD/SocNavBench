@@ -27,14 +27,14 @@ class JoystickRandom(JoystickBase):
             int(np.floor(self.sim_dt / self.joystick_params.dt))
 
         # send either posntional or velocity commands depending on param status
-        if(self.joystick_params.use_system_dynamics):
+        if self.joystick_params.use_system_dynamics:
             self.input = self.random_vel_cmds(num_actions_per_dt)
         else:
             self.input = self.random_posn_cmds(num_actions_per_dt,
                                                self.robot_posn)
 
     def joystick_act(self):
-        if(not self.joystick_on):
+        if not self.joystick_on:
             return
         # send random commands to the robot
         self.send_cmds(self.input,

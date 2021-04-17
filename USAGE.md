@@ -84,7 +84,7 @@ To choose which tests to run, edit the `tests` list under `[episode_params]` in 
 ## More about the `Agents`
 Pedestrians used in the simulator can be either autonomous agents or prerecorded agents. The autonomous agents follow the same `SamplingPlanner` planner to reach their goal. However we also include the option to use prerecorded agents which are from an open-source dataset that recorded real human trajectories in various environments. 
 - Since the prerecorded agents have a set trajectory as they are spawned, they cannot interact with the environment or change course to avoid obstacles
-- We do provide the option under `[agent_params]` in [`user_params.ini`](params/user_params.ini) to toggle `pause_on_collide` which will pause the pedestrians' motion for `collision_cooldown_amnt` simulator timesteps after a collision with the robot. This feature applies to both Auto-agents as well as Prerecorded-agents. 
+- We do provide the option under `[agent_params]` in [`user_params.ini`](params/user_params.ini) to toggle `pause_on_collide` which will pause the pedestrians' motion for `collision_cooldown_amnt` seconds (simulator time) after a collision with the robot. This feature applies to both Auto-agents as well as Prerecorded-agents. 
 
 The pedestrian datasets are also a component of the user-editable params under [`dataset_params.ini`](params/dataset_params.ini) which define the following params:
 - `file_name` which holds the relative file location of the `.csv` file for the dataset.
@@ -110,7 +110,7 @@ More information about the `sim_states` can be found in [`simulators/sim_state.p
 
 
 ## Visualization
-The default rendering mode is `Schematic`, which renders only the topview of the episode. The topdown view only uses matplotlib to render a "bird's-eye-view" perspective without needing the intensive OpenGL Swiftshader renderer. However, to visualize the Depth/RGB modes change the `render_mode` parameter in [`params/user_params.ini`](params/user_params.ini) to `full-render`. Note that currently the program does not support parallel image rendering when using the 3D renderer, making it very time consuming.
+The default rendering mode is `Schematic` which renders only the topview of the episode. The topdown view only uses matplotlib to render a "bird's-eye-view" perspective without needing the intensive OpenGL Swiftshader renderer. However, to visualize the Depth/RGB modes change the `render_mode` parameter in [`params/user_params.ini`](params/user_params.ini) to `full-render`. Note that currently the program does not support parallel image rendering when using the 3D renderer, making it very time consuming. The `schematic` rendering mode utilizes python `multiprocessing` to render frames in paralell, to maximize performance and utilize all your machine's cores, edit `num_render_cores` in [`params/user_params.ini`](params/user_params.ini) under `[simulator_params]`. 
 
 ## Rendering Modes:
 <img src="https://docs.google.com/drawings/d/e/2PACX-1vTyCc098f0Rk__i8p4xwcMIELorIsQ3BSvN2k-ntomr8olhWEaIWs4EJGJ8MdGTLkvaygODNIuOvHed/pub?w=1288&h=440" alt="drawing" width="100%"/>

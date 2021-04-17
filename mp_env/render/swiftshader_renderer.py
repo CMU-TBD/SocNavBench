@@ -191,10 +191,9 @@ class Shape():
             v, f, np.random.RandomState(0), n_samples_per_face)
         return p, face_areas, face_idx
 
-    def __del__(self):  # cause lots of errors and no benefit?
-        dummy = 1
-        #scene = self.scene
-        # assimp.release(scene)
+    def __del__(self):
+        scene = self.scene
+        assimp.release(scene)
 
 
 class HumanShape(Shape):
@@ -275,8 +274,8 @@ class SwiftshaderRenderer():
         self.height = height  # renderer height
         self.fov_horizontal = fov_horizontal
         self.fov_vertical = fov_vertical
-        self.viewport = np.array(
-            [0, 0, self.width, self.height], dtype=np.int32)
+        self.viewport = np.array([0, 0, self.width, self.height],
+                                 dtype=np.int32)
 
     def get_salt_string(self):
         """Returns a string that uniquely identifies the camera properties."""
@@ -311,21 +310,21 @@ class SwiftshaderRenderer():
         logging.debug('init_renderer_egl: local attributes: %s',
                       local_attributes)
         local_attributes = arrays.GLintArray.asArray(local_attributes)
-        success = eglChooseConfig(
-            egl_display, local_attributes, configs, 100, num_configs)
-        logging.debug(
-            'init_renderer_egl: eglChooseConfig success, num_configs: %d, %d', success, num_configs.value)
+        success = eglChooseConfig(egl_display, local_attributes, configs, 100,
+                                  num_configs)
+        logging.debug('init_renderer_egl: eglChooseConfig success, num_configs: %d, %d',
+                      success, num_configs.value)
         egl_config = configs[0]
 
         context_attributes = [EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE]
         context_attributes = arrays.GLintArray.asArray(context_attributes)
-        egl_context = eglCreateContext(
-            egl_display, egl_config, EGL_NO_CONTEXT, context_attributes)
+        egl_context = eglCreateContext(egl_display, egl_config, EGL_NO_CONTEXT,
+                                       context_attributes)
 
         buffer_attributes = [EGL_WIDTH, width, EGL_HEIGHT, height, EGL_NONE]
         buffer_attributes = arrays.GLintArray.asArray(buffer_attributes)
-        egl_surface = eglCreatePbufferSurface(
-            egl_display, egl_config, buffer_attributes)
+        egl_surface = eglCreatePbufferSurface(egl_display, egl_config,
+                                              buffer_attributes)
 
         eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context)
         logging.debug("init_renderer_egl: egl_display: %s egl_surface: %s, egl_config: %s",
@@ -452,10 +451,14 @@ class SwiftshaderRenderer():
                 num = entity['num']
 
                 glBindBuffer(GL_ARRAY_BUFFER, vbo)
-                glVertexAttribPointer(
-                    self.egl_mapping['vertexs'], 3, GL_FLOAT, GL_FALSE, 20, ctypes.c_void_p(0))
-                glVertexAttribPointer(
-                    self.egl_mapping['vertexs_tc'], 2, GL_FLOAT, GL_FALSE, 20, ctypes.c_void_p(12))
+                # TODO: HERE is the parallel-swiftshader-evil-bug-of-doom...
+                # the next two glVertexAttribPointer calls overwrite memory
+                # which is NOT copied over into the separate memory addresses,
+                # so this creates a segfault
+                glVertexAttribPointer(self.egl_mapping['vertexs'], 3, GL_FLOAT, GL_FALSE,
+                                      20, ctypes.c_void_p(0))
+                glVertexAttribPointer(self.egl_mapping['vertexs_tc'], 2, GL_FLOAT, GL_FALSE,
+                                      20, ctypes.c_void_p(12))
                 glEnableVertexAttribArray(self.egl_mapping['vertexs'])
                 glEnableVertexAttribArray(self.egl_mapping['vertexs_tc'])
 
@@ -467,8 +470,8 @@ class SwiftshaderRenderer():
     def render(self, modality, take_screenshot=False, output_type=0):
         with self.render_timer.record():
             self._actual_render(modality)
-        self.render_timer.display(
-            log_at=100, log_str='render timer: ', type='time')
+        self.render_timer.display(log_at=100, log_str='render timer: ',
+                                  type='time')
 
         np_rgb_img = None
         np_d_img = None
@@ -477,8 +480,8 @@ class SwiftshaderRenderer():
             if modality == 'rgb':
                 # Even though we dont want the alpha channel, opengl crashes if you
                 # dont read it. Bad OpenGL.
-                screenshot_rgba = np.zeros(
-                    (self.height, self.width, 4), dtype=np.uint8)
+                screenshot_rgba = np.zeros((self.height, self.width, 4),
+                                           dtype=np.uint8)
 
                 glReadPixels(0, 0, self.width, self.height,
                              GL_RGBA, GL_UNSIGNED_BYTE, screenshot_rgba)
@@ -493,13 +496,15 @@ class SwiftshaderRenderer():
                                             fy=self.im_resize, interpolation=cv2.INTER_AREA)
 
             if modality == 'disparity':
-                screenshot_d = np.zeros(
-                    (self.height, self.width, 4), dtype=np.uint8)
+                screenshot_d = np.zeros((self.height, self.width, 4),
+                                        dtype=np.uint8)
                 glReadPixels(0, 0, self.width, self.height,
                              GL_RGBA, GL_UNSIGNED_BYTE, screenshot_d)
                 np_d_img = screenshot_d[::-1, :, :3]
-                np_d_img = np_d_img[:, :, 2] * (255. * 255. / c) + np_d_img[:, :, 1] * (
-                    255. / c) + np_d_img[:, :, 0] * (1. / c)
+                np_d_img = \
+                    np_d_img[:, :, 2] * (255. * 255. / c) + \
+                    np_d_img[:, :, 1] * (255. / c) + \
+                    np_d_img[:, :, 0] * (1. / c)
                 np_d_img = np_d_img.astype(np.float32)
                 # np_d_img[np_d_img == 0] = np.NaN
                 np_d_img = np_d_img[:, :, np.newaxis]
@@ -564,10 +569,10 @@ class SwiftshaderRenderer():
         glBindBuffer(GL_ARRAY_BUFFER, vbo)
         glBufferData(GL_ARRAY_BUFFER, vvt.dtype.itemsize *
                      vvt.size, vvt, GL_STATIC_DRAW)
-        glVertexAttribPointer(
-            self.egl_mapping['vertexs'], 3, GL_FLOAT, GL_FALSE, 20, ctypes.c_void_p(0))
-        glVertexAttribPointer(
-            self.egl_mapping['vertexs_tc'], 2, GL_FLOAT, GL_FALSE, 20, ctypes.c_void_p(12))
+        glVertexAttribPointer(self.egl_mapping['vertexs'], 3, GL_FLOAT, GL_FALSE,
+                              20, ctypes.c_void_p(0))
+        glVertexAttribPointer(self.egl_mapping['vertexs_tc'], 2, GL_FLOAT, GL_FALSE,
+                              20, ctypes.c_void_p(12))
         glEnableVertexAttribArray(self.egl_mapping['vertexs'])
         glEnableVertexAttribArray(self.egl_mapping['vertexs_tc'])
         assert(glGetError() == GL_NO_ERROR)
@@ -695,11 +700,15 @@ class SwiftshaderRenderer():
                 break  # no need to search further
 
     def __del__(self):
-        # self.clear_scene()
-        eglMakeCurrent(self.egl_display, EGL_NO_SURFACE,
-                       EGL_NO_SURFACE, EGL_NO_CONTEXT)
-        #eglDestroySurface(self.egl_display, self.egl_surface)
-        # eglTerminate(self.egl_display)
+        try:
+            self.clear_scene()
+            if hasattr(self, "egl_display"):
+                eglMakeCurrent(self.egl_display, EGL_NO_SURFACE,
+                               EGL_NO_SURFACE, EGL_NO_CONTEXT)
+            eglDestroySurface(self.egl_display, self.egl_surface)
+            eglTerminate(self.egl_display)
+        except:
+            pass
 
 
 def get_r_obj(camera_param):

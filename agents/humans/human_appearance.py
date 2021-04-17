@@ -51,7 +51,7 @@ class HumanAppearance():
                 identity_rng)
         return human_gender, human_texture, body_shape
 
-    def generate_random_human_appearance(self):
+    def generate_rand_human_appearance(self):
         """
         Sample a new human from known identity features, but unknown 
         positional/speed arguments (and mesh rng)

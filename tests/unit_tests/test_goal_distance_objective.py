@@ -68,12 +68,11 @@ def test_goal_distance():
 
     # Error in objectives
     # We have to allow a little bit of leeway in this test because the computation of FMM distance is not exact.
-    objetive_error = abs(
-        expected_objective - objective_values_13[0]) / (expected_objective + 1e-6)
+    objetive_error = abs(expected_objective -
+                         objective_values_13[0]) / (expected_objective + 1e-6)
     assert max(objetive_error) <= 0.1
 
-    numerical_error = max(
-        abs(objective_values_13[0] - p.test_goal_dist_ans))
+    numerical_error = max(abs(objective_values_13[0] - p.test_goal_dist_ans))
     assert numerical_error <= .01
 
 

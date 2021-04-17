@@ -4,8 +4,8 @@ import threading
 from simulators.simulator_helper import SimulatorHelper
 from agents.agent import Agent
 from simulators.sim_state import SimState, HumanState, AgentState
-from utils.utils import *
-from utils.image_utils import *
+from utils.utils import touch, absmax, iter_print, euclidean_dist2
+from utils.utils import color_red, color_green, color_reset, color_print, termination_cause_to_color
 
 
 class Simulator(SimulatorHelper):
@@ -102,8 +102,8 @@ class Simulator(SimulatorHelper):
         # (occurs at the start of every simulate() cycle )
         w_dt = time.time() - wall_t
         # TODO: note there is danger if w_dt takes longer than self.dt
-        if(not self.params.block_joystick):
-            if(w_dt > self.dt):
+        if not self.params.block_joystick:
+            if w_dt > self.dt:
                 print("%sSim-cycle took %.3fs > %.3fs%s" %
                       (color_red, w_dt, self.dt, color_reset))
                 return
@@ -120,18 +120,18 @@ class Simulator(SimulatorHelper):
         # turn off the robot if it is still on
         # capture final wall clock (completion) time
         self.sim_wall_clock = time.time() - start_time
-        print("\nSimulation completed in", self.sim_wall_clock,
-              "real world seconds")
+        print("\nSimulation completed in %.4f real world seconds" %
+              self.sim_wall_clock)
         # decommission_robot
         if self.robot is not None:
-            if(not self.robot.get_end_acting()):
+            if not self.robot.get_end_acting():
                 self.robot.power_off()
             self.robot_collisions = self.gather_robot_collisions(iteration)
             c = termination_cause_to_color(self.robot.termination_cause)
             term_color = color_print(c)
             print("Robot termination cause: %s%s%s" %
                   (term_color, self.robot.termination_cause, color_reset))
-        if(self.episode_params.write_episode_log):
+        if self.episode_params.write_episode_log:
             self.generate_sim_log()
         if self.robot is not None:
             # TODO generate + write the score report
@@ -162,7 +162,7 @@ class Simulator(SimulatorHelper):
         # Save all the robots
         saved_robots = {}
         last_robot_collision = ""
-        if(self.robot):
+        if self.robot:
             saved_robots[self.robot.get_name()] = AgentState(self.robot)
             last_robot_collision = self.robot.latest_collider
         current_state = SimState(saved_env, pedestrians, saved_robots,
@@ -209,11 +209,11 @@ class Simulator(SimulatorHelper):
             # Planning-based?
         ]
 
-        fail_metrics = [
-            "goal_traversal_ratio"
-        ]
+        # fail_metrics = [
+        #     "goal_traversal_ratio"
+        # ]
 
-        score_df = pd.DataFrame(columns=metrics_list)
+        # score_df = pd.DataFrame(columns=metrics_list)
 
         ep_params = self.episode_params
         filename = "episode_score_%s.pkl" % ep_params.name
@@ -227,7 +227,8 @@ class Simulator(SimulatorHelper):
                 metric_fn = eval("metrics_sim_utils." + metric)
             except (AttributeError, NameError):
                 import logging
-                logging.info("The metric %s is not implemented yet" % metric)  # will not print anything
+                logging.info("The metric %s is not implemented yet" %
+                             metric)  # will not print anything
                 continue
             metrics_out[metric] = metric_fn(self)
 
@@ -280,7 +281,7 @@ class Simulator(SimulatorHelper):
             data += "Robot termination cause: %s\n" % self.robot.termination_cause
             data += "Robot collided with %d agent(s)\n" % \
                 len(self.robot_collisions)
-            if(len(self.robot_collisions) != 0):
+            if len(self.robot_collisions) != 0:
                 data += "Collided with: %s\n" % \
                     iter_print(self.robot_collisions)
             data += "Num commands received from joystick: %d\n" % \
@@ -332,7 +333,7 @@ class Simulator(SimulatorHelper):
         print("Sending episode data to joystick...")
         r_listener_thread = \
             threading.Thread(target=self.robot.listen_to_joystick)
-        if(power_on):
+        if power_on:
             r_listener_thread.start()
         # wait until joystick is ready
         while(not self.robot.joystick_ready):
@@ -363,7 +364,7 @@ class Simulator(SimulatorHelper):
             del r_listener_thread
 
     def pedestrians_update(self, current_state: SimState):
-        if(self.params.use_multithreading):
+        if self.params.use_multithreading:
             agent_threads = self.init_auto_agent_threads(current_state)
             prerec_threads = self.init_prerec_agent_threads(current_state)
             pedestrian_threads = agent_threads + prerec_threads

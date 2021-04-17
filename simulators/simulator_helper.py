@@ -1,26 +1,26 @@
 import numpy as np
 import multiprocessing
 import threading
-from utils.utils import *
-from utils.image_utils import *
 from agents.agent import Agent
 from simulators.sim_state import SimState
 from socnav.socnav_renderer import SocNavRenderer
 from params.central_params import create_simulator_params
+from utils.utils import color_red, color_green, color_blue, color_orange, color_reset
+from utils.image_utils import render_rgb_and_depth, render_scene, save_to_gif
 import pandas as pd
 
 
 class SimulatorHelper(object):
 
-    def __init__(self, environment: dict, verbose: bool):
-        """ Initializer for the central simulator
+    def __init__(self, environment: dict, verbose=False):
+        """ Initializer for the simulator helper
         Args:
             environment (dict): dictionary housing the obj map (bitmap) and more
-            renderer (optional): OpenGL renderer for 3D models. Defaults to None
-            episode_params (str, optional): Name of the episode test that the simulator runs
+            verbose (bool): flag to print debug prints
         """
         self.environment = environment
         self.params = create_simulator_params(verbose)
+        self.episode_params = None
         self.algo_name = "lite"  # by default there is no robot (or algorithm)
         self.obstacle_map = None
         # keep track of all agents in dictionary with names as the key
@@ -40,6 +40,7 @@ class SimulatorHelper(object):
         self.total_agents: int = 0
         self.num_collided_agents: int = 0
         self.num_completed_agents: int = 0
+        self.num_timeout_agents: int = 0  # updated with (non-robot) add_agent
         # restart agent coloring on every instance of the simulator to be consistent across episodes
         Agent.restart_coloring()
 
@@ -70,12 +71,14 @@ class SimulatorHelper(object):
                               keep_episode_running=self.params.keep_episode_running)
             # added to backstage prerecs which will add to self.prerecs when the time is right
             self.backstage_prerecs[name] = a
+            self.num_timeout_agents += 1  # added one more non-robot agent
         else:
             # initialize agent and add to simulator
             a.simulation_init(sim_map=self.obstacle_map,
                               with_planner=True,
                               keep_episode_running=self.params.keep_episode_running)
             self.agents[name] = a
+            self.num_timeout_agents += 1  # added one more non-robot agent
 
     def exists_running_agent(self):
         """Checks whether or not a generated agent is still running (acting)
@@ -109,17 +112,15 @@ class SimulatorHelper(object):
         raise NotImplementedError
 
     def print_sim_progress(self, rendered_frames: int):
-        """prints an inline simulation progress message based off agent planning termination
+        """prints an inline simulation progress message based off the current agent termination statuses
             TODO: account for agent<->agent collisions
         Args:
             rendered_frames (int): how many frames have been generated so far
         """
-        num_timeout = self.total_agents - \
-            self.num_completed_agents - self.num_collided_agents
         print("A:", self.total_agents,
               "%sSuccess:" % (color_green), self.num_completed_agents,
               "%sCollide:" % (color_red), self.num_collided_agents,
-              "%sTime:" % (color_blue), num_timeout,
+              "%sTime:" % (color_blue), self.num_timeout_agents,
               "%sFrames:" % (color_reset), rendered_frames,
               "T = %.3f" % (self.sim_t),
               "\r", end="")
@@ -128,37 +129,41 @@ class SimulatorHelper(object):
         agent_collisions = []
         for i in range(max_iter):
             collider = self.sim_states[i].get_collider()
-            if(collider != ""):
+            if collider != "":
                 agent_collisions.append(collider)
         last_collider = self.robot.latest_collider
-        if(last_collider != ""):
+        if last_collider != "":
             agent_collisions.append(last_collider)
         return agent_collisions
 
     def loop_through_pedestrians(self, current_state: SimState):
         for a in list(self.agents.values()):
-            if(not a.end_acting):
-                a.update(current_state)
-            else:
-                if(a.get_collided()):
+            if a.get_end_acting():
+                if a.get_collided():
                     self.num_collided_agents += 1
                 else:
                     self.num_completed_agents += 1
+                self.num_timeout_agents -= 1  # decrement the timeout_agents counter
                 del(self.agents[a.get_name()])
                 del(a)
+            else:
+                a.update(current_state)
 
         for a in list(self.backstage_prerecs.values()):
-            if(not a.end_acting and a.get_start_time() <= Agent.sim_t < a.get_end_time()):
+            if (not a.get_end_acting()) and (a.get_start_time() <= Agent.sim_t < a.get_end_time()):
                 # only add (or keep) agents in the time frame
                 self.prerecs[a.get_name()] = a
                 a.update(current_state)
+                if a.just_collided_with_robot(self.robot):
+                    self.num_collided_agents += 1  # add collisions with robot
             else:
                 # remove agent since its not within the time frame or finished
-                if(a.get_name() in self.prerecs.keys()):
-                    if(a.get_collided()):
+                if a.get_name() in self.prerecs.keys():
+                    if a.get_end_acting() and a.get_collided():
                         self.num_collided_agents += 1
                     else:
                         self.num_completed_agents += 1
+                    self.num_timeout_agents -= 1  # decrement the timeout_agents counter
                     self.prerecs.pop(a.get_name())
                     # also remove from back stage since they will no longer be used
                     del(self.backstage_prerecs[a.get_name()])
@@ -174,11 +179,11 @@ class SimulatorHelper(object):
         agent_threads = []
         all_agents = list(self.agents.values())
         for a in all_agents:
-            if(not a.end_acting):
+            if not a.end_acting:
                 agent_threads.append(threading.Thread(target=a.update,
                                                       args=(current_state,)))
             else:
-                if(a.get_collided()):
+                if a.get_collided():
                     self.num_collided_agents += 1
                 else:
                     self.num_completed_agents += 1
@@ -203,8 +208,8 @@ class SimulatorHelper(object):
                                                        args=(current_state,)))
             else:
                 # remove agent since its not within the time frame or finished
-                if(a.get_name() in self.prerecs.keys()):
-                    if(a.get_collided()):
+                if a.get_name() in self.prerecs.keys():
+                    if a.get_collided():
                         self.num_collided_agents += 1
                     else:
                         self.num_completed_agents += 1
@@ -239,67 +244,84 @@ class SimulatorHelper(object):
         Args:
             filename (str, optional): name of each png frame (unindexed). Defaults to "obs".
         """
-        if self.params.fps_scale_down == 0 or not self.params.record_video:
+        fps_scale = self.params.fps_scale_down
+        if fps_scale == 0 or not self.params.record_video:
             print("%sNot rendering movie%s" % (color_orange, color_reset))
             return
 
         # Rendering movie
-        fps = (1.0 / self.dt) * self.params.fps_scale_down
+        fps = (1.0 / self.dt) * fps_scale
         print("%sRendering movie with fps=%d%s" %
               (color_orange, fps, color_reset))
-        num_frames = \
-            int(np.ceil(len(self.sim_states) * self.params.fps_scale_down))
-        np.set_printoptions(precision=3)
+        num_states = len(self.sim_states)
+        num_frames = int(np.ceil(num_states * fps_scale))
 
-        if not self.params.render_3D:
-            # optimized to use multiple processes
-            # TODO: put a limit on the maximum number of processes that can be run at once
-            gif_processes = []
+        sim_state_bank = list(self.sim_states.values())
+
+        # generate associative flags
+        # figure out which frames (sim_states) to skip
+        def generate_skip_flags(num_s, framerate_scale):
             skip = 0
-            frame = 0
-            for p, s in enumerate(self.sim_states.values()):
+            sim_state_skip = []
+            for _ in range(num_s):
                 if skip == 0:
-                    # pool.apply_async(self.render_sim_state, args=(s, filename + str(p) + ".png"))
-                    frame += 1
-                    gif_processes.append(multiprocessing.Process(
-                        target=self.render_sim_state,
-                        args=(renderer, camera_pose, s, filename + str(p) + ".png"))
-                    )
-                    gif_processes[-1].start()
-                    print("Started processes: %d out of %d, %.3f%% \r" %
-                          (frame, num_frames, 100.0 * (frame / num_frames)), end="")
+                    sim_state_skip.append(1)
                     # reset skip counter for frames
-                    skip = int(1.0 / self.params.fps_scale_down) - 1
+                    skip = int(1.0 / framerate_scale) - 1
                 else:
+                    sim_state_skip.append(0)
                     # skip certain other frames as directed by the fps_scale_down
                     skip -= 1
-            print()  # not overwrite next line
-            for frame, p in enumerate(gif_processes):
-                p.join()
-                print("Finished processes: %d out of %d, %.3f%% \r" %
-                      (frame + 1, num_frames, 100.0 * ((frame + 1) / num_frames)), end="")
-            print()  # not overwrite next line
-        else:
-            # generate frames sequentially (non multiproceses)
-            skip = 0
-            frame = 0
-            for s in self.sim_states.values():
-                if skip == 0:
-                    self.render_sim_state(renderer, camera_pose, s,
-                                          filename + str(frame) + ".png")
-                    frame += 1
-                    print("Generated Frames: %d out of %d, %.3f%% \r" %
-                          (frame, num_frames, 100.0 * (frame / num_frames)), end="")
-                    del s  # free the state from memory
-                    skip = int(1.0 / self.params.fps_scale_down) - 1
-                else:
-                    skip -= 1.0
-            print()
+            assert(len(sim_state_skip) == num_s)
+            return np.array(sim_state_skip).astype(np.int16)
+        sim_state_skip = generate_skip_flags(num_states, fps_scale)
+
+        import time
+        start_time = float(time.time())
+
+        def worker_render_sim_states(procID):
+            # runs an interleaved loop across sim_states in the bank
+            import matplotlib as mpl
+            mpl.use('Agg')  # for rendering without a display
+            mpl.font_manager._get_font.cache_clear()
+            for i in range(int(np.ceil(len(sim_state_bank) / self.params.num_render_cores))):
+                sim_idx = procID + i * self.params.num_render_cores
+                if sim_idx < len(sim_state_bank) and sim_state_skip[sim_idx] == 1:
+                    sim_state_idx = sim_state_bank[sim_idx]
+                    self.render_sim_state(mpl.pyplot, renderer, camera_pose,
+                                          sim_state_idx, filename + str(sim_idx) + ".png")
+                    sim_label = sim_idx * fps_scale
+                    print("Rendered frames: %d out of %d, %.3f%% \r" %
+                          (sim_label, num_frames, 100.0 * min(1, sim_label / num_frames)), sep=' ', end="", flush=True)
+
+        gif_processes = []
+        if self.params.num_render_cores > 1:
+            # TODO: fix multiprocessing with Swiftshader engine!
+            # currently only runs in single-process mode, deepcopying has a problem
+            if self.params.render_3D == False:
+                # optimized to use multiple processes
+                for p in range(self.params.num_render_cores - 1):
+                    gif_processes.append(multiprocessing.Process(target=worker_render_sim_states,
+                                                                 args=(p + 1,)))
+                for proc in gif_processes:
+                    proc.start()
+
+        # run the renderer on the root processor
+        worker_render_sim_states(0)
+
+        # finish all the other processors if there are any
+        for proc in gif_processes:
+            proc.join()
+        print("Rendered frames: %d out of %d, %.3f%%\nFinished rendering all frames" %
+              (num_frames, num_frames, 100.0))  # make sure it says 100% at the end
+        time_end = float(time.time())
+        print("rendering took %.5fs" % ((time_end - start_time)))
 
         # convert all the generated frames into a gif file
         self.save_frames_to_gif(filename=self.episode_params.name)
+        return
 
-    def render_sim_state(self, renderer: SocNavRenderer, camera_pose: list,
+    def render_sim_state(self, plt, renderer: SocNavRenderer, camera_pose: list,
                          state: SimState, filename: str):
         """Converts a state into an image to be later converted to a gif movie
         Args:
@@ -339,7 +361,7 @@ class SimulatorHelper(object):
                                      state.get_environment()["map_scale"],
                                      human_visible=True)
         # plot the rbg, depth, and topview images if applicable
-        render_scene(self.params, rgb_image_1mk3, depth_image_1mk1,
+        render_scene(plt, self.params, rgb_image_1mk3, depth_image_1mk1,
                      state.get_environment(), camera_pos_13,
                      state.get_pedestrians(), state.get_robots(),
                      state.get_sim_t(), state.get_wall_t(), filename)
@@ -418,8 +440,8 @@ def add_sim_state_to_dataframe(sim_step, sim_state, df, agent_info):
     """
     for agent_name, agent in sim_state.items():
         if not isinstance(agent, dict):
-            traj = np.squeeze(
-                agent.vehicle_trajectory.position_and_heading_nk3())
+            traj = \
+                np.squeeze(agent.vehicle_trajectory.position_and_heading_nk3())
             if not agent_name in agent_info.keys():
                 agent_info[agent_name] = [agent.get_radius()]
         else:

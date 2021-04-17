@@ -150,8 +150,8 @@ class SocNavRenderer():
             # internally scales theta by delta_theta
             nodes_n3 = np.concatenate([starts_n2 * 1.,
                                        thetas_n1 / self.building.robot.delta_theta], axis=1)
-            imgs_nmk3 = self.building.render_nodes(
-                nodes_n3, modality='rgb', human_visible=human_visible)
+            imgs_nmk3 = self.building.render_nodes(nodes_n3, modality='rgb',
+                                                   human_visible=human_visible)
         else:
             width = self.p.camera_params.width
             height = self.p.camera_params.height
@@ -200,14 +200,14 @@ class SocNavRenderer():
         robot = self.building.robot
         z_bins = [-10, robot.base, robot.base + robot.height]
 
-        nodes_n3 = np.concatenate(
-            [starts_n2 * 1., thetas_n1 / self.building.robot.delta_theta], axis=1)
+        nodes = [starts_n2 * 1., thetas_n1 / self.building.robot.delta_theta]
+        nodes_n3 = np.concatenate(nodes, axis=1)
         # Disparity in centimeters
-        disparity_imgs_cm = np.array(self.building.render_nodes(
-            nodes_n3, 'disparity', human_visible=human_visible))
+        disparity_imgs_cm = np.array(self.building.render_nodes(nodes_n3, 'disparity',
+                                                                human_visible=human_visible))
 
-        depth_imgs_meters = 100. / \
-            (disparity_imgs_cm[..., 1] + 0.000001)  # no divide by 0 error
+        ep = 0.000001  # no divide by 0 error
+        depth_imgs_meters = 100. / (disparity_imgs_cm[..., 1] + ep)
 
         # Optionally Clip Depth Readings
         if self.p.camera_params.max_depth_meters < np.inf:
@@ -219,15 +219,15 @@ class SocNavRenderer():
         assert (r_obj.fov_horizontal == r_obj.fov_vertical)
         # Generate a Point Cloud from the Depth Image
         # (In the Camera Coordinate System)
-        cm = du.get_camera_matrix(
-            r_obj.width, r_obj.height, r_obj.fov_vertical)
+        cm = du.get_camera_matrix(r_obj.width, r_obj.height,
+                                  r_obj.fov_vertical)
         XYZ = du.get_point_cloud_from_z(depth_imgs_meters, cm)
         XYZ = XYZ * 100.  # convert to centimeters
 
         # Transform from the camera coordinate system
         # to the geocentric coordinate system (align the point cloud to the ground plane)
-        XYZ = du.make_geocentric(
-            XYZ, robot.sensor_height, robot.camera_elevation_degree)
+        XYZ = du.make_geocentric(XYZ, robot.sensor_height,
+                                 robot.camera_elevation_degree)
 
         # Note: Added here to get the depth image in the current frame
         # Transform from the ground plane to the robots current
@@ -235,8 +235,8 @@ class SocNavRenderer():
         XYZ = self.transform_to_current_frame(XYZ[0], pos_3)
         XYZ = XYZ[None, :, :, :]
 
-        count, isvalid = du.bin_points(
-            XYZ * 1., map_size, z_bins, xy_resolution)
+        count, isvalid = du.bin_points(XYZ * 1., map_size, z_bins,
+                                       xy_resolution)
         count = [x[0, ...] for x in np.split(count, count.shape[0], 0)]
         isvalid = [x[0, ...] for x in np.split(isvalid, isvalid.shape[0], 0)]
 

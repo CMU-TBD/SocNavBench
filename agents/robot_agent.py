@@ -1,6 +1,7 @@
-from utils.utils import *
+from utils.utils import generate_config_from_pos_3
 from agents.agent import Agent
-from agents.robot_utils import *
+from agents.robot_utils import clip_vel, clip_posn, send_sim_state, send_to_joystick, force_connect
+from agents.robot_utils import establish_handshake, listen_once, close_sockets
 from trajectory.trajectory import SystemConfig
 from params.central_params import create_robot_params
 import numpy as np
@@ -8,10 +9,9 @@ import time
 
 
 class RobotAgent(Agent):
-    def __init__(self, name, start_configs):
-        self.name = name
-        super().__init__(start_configs.get_start_config(),
-                         start_configs.get_goal_config(),
+    def __init__(self, name, start_config, goal_config):
+        super().__init__(start_config,
+                         goal_config,
                          name)
         self.joystick_inputs = []
         # josystick is ready once it has been sent an environment
@@ -56,18 +56,34 @@ class RobotAgent(Agent):
         return self.block_time_total
 
     @staticmethod
-    def generate_robot(configs, name=None, verbose=False):
+    def generate(simulator, params, robot_start_goal):
+        assert(len(robot_start_goal) == 2)
+        rob_start = generate_config_from_pos_3(robot_start_goal[0])
+        rob_goal = generate_config_from_pos_3(robot_start_goal[1])
+        robot_agent = RobotAgent.generate_robot_with_start_goal(rob_start,
+                                                                rob_goal)
+        simulator.add_agent(robot_agent)
+
+    @staticmethod
+    def generate_robot(configs, verbose=False):
+        """
+        Sample a new random robot agent from all required features
+        """
+        start = configs.get_start_config().to_3D_numpy()
+        goal = configs.get_goal_config().to_3D_numpy()
+        return RobotAgent.generate_robot_with_start_goal(start, goal, verbose=verbose)
+
+    @staticmethod
+    def generate_robot_with_start_goal(start, goal, verbose=False):
         """
         Sample a new random robot agent from all required features
         """
         robot_name = "robot_agent"  # constant name for the robot since there will only ever be one
         # In order to print more readable arrays
         np.set_printoptions(precision=2)
-        pos_2 = configs.get_start_config().to_3D_numpy()
-        goal_2 = configs.get_goal_config().to_3D_numpy()
         if verbose:
-            print("Robot", robot_name, "at", pos_2, "with goal", goal_2)
-        return RobotAgent(robot_name, configs)
+            print("Robot", robot_name, "at", start, "with goal", goal)
+        return RobotAgent(robot_name, start, goal)
 
     @staticmethod
     def random_from_environment(environment):
@@ -96,18 +112,18 @@ class RobotAgent(Agent):
 
     def execute(self):
         self.check_termination_conditions()
-        if(self.params.robot_params.use_system_dynamics):
+        if self.params.robot_params.use_system_dynamics:
             self.execute_velocity_cmds()
         else:
             self.execute_position_cmds()
-        if (self.params.verbose):
+        if self.params.verbose:
             print(self.get_current_config().to_3D_numpy())
         # knowing that both executions took self.num_cmds_per_batch commands
         self.num_executed += self.num_cmds_per_batch
 
     def execute_velocity_cmds(self):
         for _ in range(self.num_cmds_per_batch):
-            if(self.get_end_acting()):
+            if self.get_end_acting():
                 break
             current_config = self.get_current_config()
             # the command is indexed by self.num_executed and is safe due to the size constraints in the update()
@@ -131,7 +147,7 @@ class RobotAgent(Agent):
 
     def execute_position_cmds(self):
         for _ in range(self.num_cmds_per_batch):
-            if(self.get_end_acting()):
+            if self.get_end_acting():
                 break
             joystick_input = self.joystick_inputs[self.num_executed]
             assert(len(joystick_input) == 4)  # has x,y,theta,velocity
@@ -177,24 +193,24 @@ class RobotAgent(Agent):
             # execute all the commands on the queue
             self.execute()
             # decrement counter
-            if(self.joystick_requests_world > 0):
+            if self.joystick_requests_world > 0:
                 self.joystick_requests_world -= 1
         elif not self.block_joystick and self.remaining_repeats > 0:
             # repeat the last n commands in the queue if running asynchronously
             # only if there is at least n>0 available commands to repeat
-            if(num_cmds < 1):
+            if num_cmds < 1:
                 return
             repeats = self.joystick_inputs[-1:]
             self.joystick_inputs.extend(repeats)
             self.execute()
             # decrement counter
-            if(self.joystick_requests_world > 0):
+            if self.joystick_requests_world > 0:
                 self.joystick_requests_world -= 1
             # just executed one command, decrease from the counter
             self.remaining_repeats -= 1
 
     def update(self):
-        if(self.get_end_acting()):
+        if self.get_end_acting():
             return
         self.sense()
         self.plan()
