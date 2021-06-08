@@ -16,8 +16,11 @@ Once you receive the credentials to download the dataset, you will have a person
 a) With the same credentials as with the SURREAL dataset, you can download the necessary SMPL data and place it in `/PATH/TO/SocNavBench/surreal/download/SURREAL/smpl_data`.
 
 ``` 
-./download_smpl_data.sh /PATH/TO/SocNavBench/surreal/download yourusername yourpassword
+./download_smpl_data.sh /PATH/TO/SocNavBench/surreal/download liyaof@andrew.cmu.edu e2005c39
 ```
+
+SocNavBench-master/surreal/download/download_smpl_data.sh /home/liyao/ROS/SocNavBench-master/surreal/download liyaof@andrew.cmu.edu e2005c39
+
 
 b) You need to download SMPL for MAYA from http://smpl.is.tue.mpg.de in order to run the synthetic data generation code. Once you agree on SMPL license terms and have access to downloads, you will have the following two files (~ 40 MB).
 
@@ -48,20 +51,20 @@ You need to download [Blender](http://download.blender.org/release/) and install
 wget http://download.blender.org/release/Blender2.78/blender-2.78a-linux-glibc211-x86_64.tar.bz2
 
 # Un-TAR Blender
-tar xjf blender-2.78a-linux-glibc211-x86_64.tar.bz2 
+tar xjf blender-2.79a-linux-glibc219-x86_64.tar.bz2 
 
 # Export the BLENDER_PATH
-export BLENDER_PATH='/path/to/blender/blender-2.78-linux-glibc219-x86_64'
+export BLENDER_PATH='/home/liyao/blender-2.79a-linux-glibc219-x86_64'
 
 # Install pip
 wget https://bootstrap.pypa.io/get-pip.py
-$BLENDER_PATH/2.78/python/bin/python3.5m get-pip.py
+/home/liyao/blender-2.79a-linux-glibc219-x86_64/2.79/python/bin/python3.5m get-pip.py
 
 # Make sure you have libglu1
 sudo apt-get install libglu1
 
 # Install scipy
-$BLENDER_PATH/2.78/python/bin/python3.5m -m pip install scipy
+$BLENDER_PATH/2.79/python/bin/python3.5m -m pip install scipy
 ```
 
 Note: Installation of pip may fail in Blender 2.78a (this is a known issue)
@@ -81,14 +84,14 @@ ImportError: Something is wrong with the numpy installation. While importing we 
 To fix this run the following
 ```
 # Uninstall numpy & scipy
-$BLENDER_PATH/2.78/python/bin/python3.5m -m pip uninstall scipy
-$BLENDER_PATH/2.78/python/bin/python3.5m -m pip uninstall numpy
+$BLENDER_PATH/2.79/python/bin/python3.5m -m pip uninstall scipy
+$BLENDER_PATH/2.79/python/bin/python3.5m -m pip uninstall numpy
 
 # Manually delete blender's default numpy installation
-rm -rf $BLENDER_PATH/2.78/python/lib/python3.5/site-packages/numpy/
+rm -rf $BLENDER_PATH/2.79/python/lib/python3.5/site-packages/numpy/
 
 # Reinstall scipy (numpy will also be reinstalled in the process)
-$BLENDER_PATH/2.78/python/bin/python3.5m -m pip install scipy
+$BLENDER_PATH/2.79/python/bin/python3.5m -m pip install scipy
 
 ```
 
@@ -100,12 +103,12 @@ $BLENDER_PATH/2.78/python/bin/python3.5m -m pip install scipy
 ### Edit the config file
 In the directory `/PATH/TO/SocNavBench/surreal/code` update the following line in the file called `"config"`
 ```
-smpl_data_folder   = '/PATH/TO/SocNavBench/surreal/download/SURREAL/smpl_data'
+smpl_data_folder   = '/home/liyao/ROS/SocNavBench-master/surreal/download/SURREAL/smpl_data'
 ```
 
 ### Test the installation
 ```
-cd /PATH/TO/SocNavBench/surreal/code
+cd /home/liyao/ROS/SocNavBench-master/surreal/code
 $BLENDER_PATH/blender -b -t 1 -P export_human_meshes.py -- --idx 2 --ishape 0 --stride 59 --gender female --body_shape 1000 --outdir test_human_mesh_generation
 ```
 The test should create the following directory structure:
@@ -133,7 +136,7 @@ The human_mesh_i.obj (mesh of the corresponding human body), and human_centering
 ### Generate the Human Mesh Models for SocNavBench
 Note: Full data generation takes around ~4 hours & 5 GB of space.
 ```
-cd /PATH/TO/SocNavBench/surreal/code
+cd /home/liyao/ROS/SocNavBench-master/surreal/code
 sh generate_meshes.sh
 ```
 
