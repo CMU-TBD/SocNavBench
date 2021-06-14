@@ -51,7 +51,7 @@ wget http://download.blender.org/release/Blender2.78/blender-2.78a-linux-glibc21
 tar xjf blender-2.78a-linux-glibc211-x86_64.tar.bz2 
 
 # Export the BLENDER_PATH
-export BLENDER_PATH='/path/to/blender/blender-2.78-linux-glibc219-x86_64'
+export BLENDER_PATH='/path/to/blender/blender-2.78-linux-glibc211-x86_64'
 
 # Install pip
 wget https://bootstrap.pypa.io/get-pip.py
@@ -65,7 +65,7 @@ $BLENDER_PATH/2.78/python/bin/python3.5m -m pip install scipy
 ```
 
 Note: Installation of pip may fail in Blender 2.78a (this is a known issue)
-If this happens Blender 2.79a should work. You can install it from here (and then repeat the above steps substituting 2.79a for 2.78).
+If this happens Blender 2.79a should work. You can install it from here (and then repeat the above steps substituting 2.79a for 2.78 and glibc219 for glibc211).
 ```
 wget https://download.blender.org/release/Blender2.79/blender-2.79a-linux-glibc219-x86_64.tar.bz2
 ```
