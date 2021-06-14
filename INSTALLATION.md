@@ -70,7 +70,7 @@ To get you started we've included `tests`, which contains the main code example 
 # From the base SocNavBench directory
 
 # Ensure the unit tests succeed with 
-python3 tests/all_unit_tests.py 
+PYTHONPATH = '.' python3 tests/all_unit_tests.py 
 
 # test the socnav simulator itself with 
 PYOPENGL_PLATFORM=egl PYTHONPATH='.' python3 tests/test_socnav.py
