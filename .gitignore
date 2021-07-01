@@ -20,3 +20,4 @@ build/
 dist/
 scratch/
 joystick/joystick_cpp/json.hpp
+*.ipynb_checkpoints

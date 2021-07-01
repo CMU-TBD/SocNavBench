@@ -114,3 +114,6 @@ The default rendering mode is `Schematic` which renders only the topview of the 
 
 ## Rendering Modes:
 <img src="https://docs.google.com/drawings/d/e/2PACX-1vTyCc098f0Rk__i8p4xwcMIELorIsQ3BSvN2k-ntomr8olhWEaIWs4EJGJ8MdGTLkvaygODNIuOvHed/pub?w=1288&h=440" alt="drawing" width="100%"/>
+
+### Random episode sampling 
+Random episode sampling support is added to the `random_eps` folder -- look at that README for more.
