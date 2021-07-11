@@ -23,3 +23,13 @@ This work was funded under grants from the National Science Foundation (NSF IIS-
 
 This project is also built upon the *Human Active Navigation* ([HumANav](https://github.com/vtolani95/HumANav-Release)) and *Learning-Based Waypoint Navigation* ([Visual-Navigation](https://github.com/smlbansal/Visual-Navigation-Release)) codebases. Special thanks to [Varun Tolani](https://github.com/vtolani95) for helping us with his projects.
 
+## Citation
+If you use our work, please cite the corresponding work:
+```
+@article{biswas2021socnavbench,
+  title={SocNavBench: A Grounded Simulation Testing Framework for Evaluating Social Navigation},
+  author={Biswas, Abhijat and Wang, Allan and Silvera, Gustavo and Steinfeld, Aaron and Admoni, Henny},
+  journal={arXiv preprint arXiv:2103.00047},
+  year={2021}
+}
+```
