@@ -1,15 +1,15 @@
 #ifndef SOCKET_H
 #define SOCKET_H
 
+#include <arpa/inet.h>
+#include <cstring>
 #include <iostream>
+#include <netdb.h>
+#include <string>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <netdb.h>
-#include <arpa/inet.h>
 #include <unistd.h>
 #include <vector>
-#include <cstring>
-#include <string>
 
 // TODO: read these from the user_params.ini
 #define SEND_ID "/tmp/socnavbench_joystick_recv" // default for SocNavBench
@@ -28,7 +28,7 @@ struct sockaddr_un receiver_addr = {AF_UNIX, RECV_ID};
 /* file descriptor of the receiver-socket, to listen to the robot */
 int receiver_fd = 0;
 
-/** 
+/**
  * @brief initializes the 'sender' (client) connection to the simulator
  * @param[in] robot_addr The address of the robot-sender socket
  * @param[in] robot_sender_fd The file descriptor of the robot-sender socket
@@ -36,7 +36,7 @@ int receiver_fd = 0;
  */
 int init_send_conn(struct sockaddr_un &addr, int &sender_fd);
 
-/** 
+/**
  * @brief initializes the 'receiver' (server) connection to the simulator
  * @param[in] robot_addr The address of the robot-receiver socket
  * @param[in] robot_receiver_fd The file descriptor of the robot-receiver socket
@@ -52,9 +52,9 @@ const bool verbose = false;
 /** @brief The number of times when the sockets were connected */
 size_t num_connections = 0;
 
-/** 
+/**
  * @brief receives all the data from a client descriptor into a buffer at a certain rate
- * @param[in] conn_fd The file descriptor of the connection to receive from 
+ * @param[in] conn_fd The file descriptor of the connection to receive from
  * @param[out] buffer The resulting buffer to write the data into
  * @param[in] buffer_amnt The maximum amount to recv() at a time
  * @returns response_len The number of bytes received from the socket connection
@@ -77,7 +77,7 @@ int conn_recv(const int conn_fd, vector<char> &data, const int buf_amnt = 128)
     return response_len;
 }
 
-/** 
+/**
  * @brief Closes the input sockets manually
  * @param[in] send_fd The file descriptor of the "sending" socket
  * @param[in] recv_fd The file descriptor of the "receiving" socket
@@ -88,7 +88,7 @@ void close_sockets(const int &send_fd, const int &recv_fd)
     close(recv_fd);
 }
 
-/** 
+/**
  * @brief sends a message (string) to the robot
  * @param[in] message The string to send to the robot, can be json string or literal
  * @returns 0 if successful, -1 otherwise
@@ -113,7 +113,7 @@ int send_to_robot(const string &message)
     return 0;
 }
 
-/** 
+/**
  * @brief waits for a response from the server and receives it all
  * @param[in] data The buffer to write the data into
  * @returns 0 if successful, -1 otherwise
@@ -122,8 +122,7 @@ int listen_once(vector<char> &data)
 {
     int client_fd;
     int addr_len = sizeof(receiver_addr);
-    if ((client_fd = accept(receiver_fd, (struct sockaddr *)&receiver_addr,
-                            (socklen_t *)&addr_len)) < 0)
+    if ((client_fd = accept(receiver_fd, (struct sockaddr *)&receiver_addr, (socklen_t *)&addr_len)) < 0)
     {
         cout << "\033[31m"
              << "Unable to accept connection\n"
@@ -139,14 +138,13 @@ int listen_once(vector<char> &data)
     return 0;
 }
 
-/** 
+/**
  * @brief initializes the 'sender' (client) connection to the simulator
  * @param[in] robot_addr The address of the robot-sender socket
  * @param[in] robot_sender_fd The file descriptor of the robot-sender socket
  * @returns 0 if successful, -1 otherwise
  */
-int init_send_conn(struct sockaddr_un &robot_addr,
-                   int &robot_sender_fd)
+int init_send_conn(struct sockaddr_un &robot_addr, int &robot_sender_fd)
 {
     // "client" connection
     if ((robot_sender_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
@@ -154,8 +152,7 @@ int init_send_conn(struct sockaddr_un &robot_addr,
         perror("\nsocket() error: ");
         return -1;
     }
-    if (connect(robot_sender_fd, (struct sockaddr *)&robot_addr,
-                sizeof(robot_addr)) < 0)
+    if (connect(robot_sender_fd, (struct sockaddr *)&robot_addr, sizeof(robot_addr)) < 0)
     {
         cout << "\033[31m"
              << "Unable to connect to robot\n"
@@ -171,14 +168,13 @@ int init_send_conn(struct sockaddr_un &robot_addr,
     return 0;
 }
 
-/** 
+/**
  * @brief initializes the 'receiver' (server) connection to the simulator
  * @param[in] robot_addr The address of the robot-receiver socket
  * @param[in] robot_receiver_fd The file descriptor of the robot-receiver socket
  * @returns client_fd if successful (nonnegative), -1 otherwise
  */
-int init_recv_conn(struct sockaddr_un &robot_addr,
-                   int &robot_receiver_fd)
+int init_recv_conn(struct sockaddr_un &robot_addr, int &robot_receiver_fd)
 {
     int client;
     int opt = 1;
@@ -187,14 +183,13 @@ int init_recv_conn(struct sockaddr_un &robot_addr,
         perror("socket() error");
         exit(EXIT_FAILURE);
     }
-    if (setsockopt(robot_receiver_fd, SOL_SOCKET,
-                   SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)) < 0)
+    if (setsockopt(robot_receiver_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)) < 0)
     {
         perror("setsockopt() error");
         exit(EXIT_FAILURE);
     }
-    if (bind(robot_receiver_fd, (struct sockaddr *)&robot_addr,
-             sizeof(robot_addr)) < 0)
+    unlink(RECV_ID); // delete the UNIX socket file if still in use
+    if (bind(robot_receiver_fd, (struct sockaddr *)&robot_addr, sizeof(robot_addr)) < 0)
     {
         perror("bind() error");
         exit(EXIT_FAILURE);
@@ -205,8 +200,7 @@ int init_recv_conn(struct sockaddr_un &robot_addr,
         exit(EXIT_FAILURE);
     }
     int addr_len = sizeof(robot_receiver_fd);
-    if ((client = accept(robot_receiver_fd, (struct sockaddr *)&robot_addr,
-                         (socklen_t *)&addr_len)) < 0)
+    if ((client = accept(robot_receiver_fd, (struct sockaddr *)&robot_addr, (socklen_t *)&addr_len)) < 0)
     {
         perror("accept() error");
         exit(EXIT_FAILURE);

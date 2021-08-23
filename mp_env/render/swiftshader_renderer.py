@@ -35,8 +35,13 @@ import sys
 import numpy as np
 import pyassimp as assimp
 from OpenGL.GLES2 import *
-from OpenGL.EGL import *
+try:
+    # wont work on headless displays
+    from OpenGL.EGL import *
+except AttributeError:
+    pass
 from mp_env.render import rotation_utils
+from mp_env.map_utils import Foo, Timer
 from utils.utils import *
 
 __version__ = 'swiftshader_renderer'
@@ -97,11 +102,11 @@ class Shape():
             m.name = name_prefix + m.name + '_{:05d}'.format(i) + name_suffix
         # logging.error('#Meshes: %d', len(self.meshes))
         print("%sNumber of Meshes:" %
-              (color_yellow), len(self.meshes), '\033[0m')
+              (color_text["yellow"]), len(self.meshes), '\033[0m')
         dir_name = os.path.dirname(obj_file)
         # Load materials
         materials = None
-        print("%sLoading meshes from" % (color_orange), dir_name, '\033[00m')
+        print("%sLoading meshes from" % (color_text["orange"]), dir_name, '\033[00m')
         if load_materials:
             materials = []
             i = 0
@@ -110,20 +115,20 @@ class Shape():
                 try:
                     file_name = os.path.join(dir_name, all_files[i])
                 except:
-                    print("%sout of bounds reference to index" % (color_red),
-                          i, "out of", len(all_files), "%s" % (color_reset))
+                    print("%sout of bounds reference to index" % (color_text["red"]),
+                          i, "out of", len(all_files), "%s" % (color_text["reset"]))
                     continue
                 i = i + 1
                 #assert(os.path.exists(file_name)), 'Texture file {:s} foes not exist.'.format(file_name)
                 if(not(os.path.exists(file_name))):
-                    print("%sTexture file" % (color_red), file_name,
+                    print("%sTexture file" % (color_text["red"]), file_name,
                           "does not exist.", '\033[0m')
                     sys.exit(1)
                 materials.append(self._load_materials_from_file(
                     file_name, materials_scale))
         self.scene = scene
         print("%sAll meshes successfully loaded%s" %
-              (color_green, color_reset))
+              (color_text["green"], color_text["reset"]))
         self.materials = materials
 
     @staticmethod
@@ -289,8 +294,12 @@ class SwiftshaderRenderer():
 
     def init_renderer_egl(self, width, height):
         major, minor = ctypes.c_long(), ctypes.c_long()
-        logging.debug('init_renderer_egl: EGL_DEFAULT_DISPLAY: %s',
-                      EGL_DEFAULT_DISPLAY)
+        try:
+            logging.debug('init_renderer_egl: EGL_DEFAULT_DISPLAY: %s',
+                        EGL_DEFAULT_DISPLAY)
+        except NameError:
+            print("{}ERROR: Make sure to use PYOPENGL_PLATFORM=egl for the EGL renderer to work{}".format(color_text["red"], color_text["reset"]))
+            raise
         # EGLNativeDisplayType.from_param(0)
         egl_default_display = EGL_DEFAULT_DISPLAY
 
@@ -569,10 +578,13 @@ class SwiftshaderRenderer():
         glBindBuffer(GL_ARRAY_BUFFER, vbo)
         glBufferData(GL_ARRAY_BUFFER, vvt.dtype.itemsize *
                      vvt.size, vvt, GL_STATIC_DRAW)
-        glVertexAttribPointer(self.egl_mapping['vertexs'], 3, GL_FLOAT, GL_FALSE,
-                              20, ctypes.c_void_p(0))
-        glVertexAttribPointer(self.egl_mapping['vertexs_tc'], 2, GL_FLOAT, GL_FALSE,
-                              20, ctypes.c_void_p(12))
+        try:
+            glVertexAttribPointer(self.egl_mapping['vertexs'], 3, GL_FLOAT, GL_FALSE,
+                                20, ctypes.c_void_p(0))
+            glVertexAttribPointer(self.egl_mapping['vertexs_tc'], 2, GL_FLOAT, GL_FALSE,
+                                20, ctypes.c_void_p(12))
+        except NameError:
+            pass
         glEnableVertexAttribArray(self.egl_mapping['vertexs'])
         glEnableVertexAttribArray(self.egl_mapping['vertexs_tc'])
         assert(glGetError() == GL_NO_ERROR)
@@ -605,10 +617,9 @@ class SwiftshaderRenderer():
     def load_shapes(self, shapes, dedup_tbo=False, allow_repeat_humans=False):
         entity_ids = []
         dedup_dict = {}
-        for i, shape in enumerate(shapes):
+        for shape in shapes:
             for j in range(len(shape.meshes)):
-                # add i for indication of which human
-                name = shape.meshes[j].name + str(i)
+                name:str = shape.meshes[j].name # already includes human name
                 # if not (allow_repeat_humans and 'human' in name):
                 #    assert name not in entities, '{:s} entity already exists.'.format(name)
                 if shape.materials[j][0] in dedup_dict and dedup_tbo:
