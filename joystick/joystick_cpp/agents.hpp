@@ -10,18 +10,20 @@ using namespace std;
 using json = nlohmann::json; // for convenience
 
 /**
- * @brief State class for the Pedestrians representation. 
+ * @brief State class for the Pedestrians representation.
  * @param[out] name The agent's name
  * @param[out] current_config The agent's current "config" (x, y, theta)
  * @param[out] radius The radius of the agent
  */
 class AgentState
 {
-public:
-    AgentState() {}
+  public:
+    AgentState()
+    {
+    }
 
     /**
-     * @brief Constructor for the Pedestrian's AgentState representation. 
+     * @brief Constructor for the Pedestrian's AgentState representation.
      * @param[out] name The agent's name
      * @param[out] current_config The agent's current "config" (x, y, theta)
      * @param[out] radius The radius of the agent
@@ -34,13 +36,22 @@ public:
     }
 
     /** @brief getter for the agent's name */
-    string get_name() const { return name; }
+    string get_name() const
+    {
+        return name;
+    }
 
     /** @brief getter for the agent's radius */
-    float get_radius() const { return radius; }
+    float get_radius() const
+    {
+        return radius;
+    }
 
     /* @brief getter for the agent's current config (x, y, theta) */
-    vector<float> get_current_config() const { return current_config; }
+    vector<float> get_current_config() const
+    {
+        return current_config;
+    }
 
     /**
      * @brief construct an AgentState out of its serialized json form
@@ -55,7 +66,7 @@ public:
         return AgentState(name, current_pos3, radius);
     }
 
-    /** 
+    /**
      * @brief construct a hash map out of a serialized json dictionary
      * @param[in] data The json object that holds the serialized AgentState dictionary
      * @returns pedestrians The map from name to AgentState of all the pedestrians
@@ -72,7 +83,7 @@ public:
         return pedestrians;
     }
 
-private:
+  private:
     /* The agent's name */
     string name;
 

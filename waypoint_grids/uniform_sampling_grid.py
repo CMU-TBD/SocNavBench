@@ -1,5 +1,5 @@
 import numpy as np
-from utils import utils
+from utils.utils import ensure_odd
 from waypoint_grids.base import WaypointGridBase
 
 
@@ -12,7 +12,8 @@ class UniformSamplingGrid(WaypointGridBase):
         over which to plan trajectories."""
         p = self.params
         wx_n11, wy_n11, wtheta_n11 = self._compute_waypoint_meshgrid_n11()
-        wx_n11, wy_n11, wtheta_n11 = self._keep_valid_waypoints(wx_n11, wy_n11, wtheta_n11)
+        wx_n11, wy_n11, wtheta_n11 = self._keep_valid_waypoints(
+            wx_n11, wy_n11, wtheta_n11)
         vf_n11 = np.ones_like(wx_n11) * vf
         wf_n11 = np.zeros_like(wx_n11)
         return wx_n11, wy_n11, wtheta_n11, vf_n11, wf_n11
@@ -20,7 +21,8 @@ class UniformSamplingGrid(WaypointGridBase):
     def _compute_waypoint_meshgrid_n11(self):
         """Sample a meshgrid of in [x, y, theta] space."""
         p = self.params
-        num_x_bins, num_y_bins, num_theta_bins = self.compute_num_x_y_theta_bins(p)
+        num_x_bins, num_y_bins, num_theta_bins = self.compute_num_x_y_theta_bins(
+            p)
         wx = np.linspace(p.bound_min[0], p.bound_max[
                          0], num_x_bins, dtype=np.float32)
         wy = np.linspace(p.bound_min[1], p.bound_max[
@@ -80,7 +82,7 @@ class UniformSamplingGrid(WaypointGridBase):
         # Ensure number of bins is odd to allow for
         # rotational behavior and egocentric waypoints
         # with 0 heading
-        num_x_bins = utils.ensure_odd(int(np.ceil(x_range / dx)))
-        num_y_bins = utils.ensure_odd(int(np.ceil(y_range / dx)))
-        num_theta_bins = utils.ensure_odd(p.num_theta_bins)
+        num_x_bins = ensure_odd(int(np.ceil(x_range / dx)))
+        num_y_bins = ensure_odd(int(np.ceil(y_range / dx)))
+        num_theta_bins = ensure_odd(p.num_theta_bins)
         return num_x_bins, num_y_bins, num_theta_bins

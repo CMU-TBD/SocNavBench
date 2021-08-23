@@ -112,4 +112,4 @@ class Dubins5D(DubinsCar):
         return Trajectory(dt=self._dt, n=n, k=k, position_nk2=position_nk2,
                           heading_nk1=heading_nk1, speed_nk1=speed_nk1,
                           angular_speed_nk1=angular_speed_nk1, acceleration_nk1=acceleration_nk1,
-                          angular_acceleration_nk1=angular_acceleration_nk1, variable=False)
+                          angular_acceleration_nk1=angular_acceleration_nk1)

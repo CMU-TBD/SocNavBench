@@ -21,14 +21,11 @@ import glob
 import pickle
 import numpy as np
 
-from mp_env import mp_env
+from mp_env.mp_env import Building
+from mp_env.map_utils import Foo
 from params.central_params import get_sbpd_data_dir
 from utils.utils import *
-try:
-    # wont work on headless displays
-    from mp_env.render import swiftshader_renderer as renderer
-except:
-    pass
+from mp_env.render import swiftshader_renderer as renderer
 
 
 def get_dataset(dataset_name, imset, data_dir, surreal_params=None):
@@ -54,12 +51,12 @@ class Loader():
     def load_building_meshes(self, building, materials_scale=1.0):
         dir_name = os.path.join(building['data_dir'], 'mesh', building['name'])
         obj_files = glob.glob1(dir_name, '*.obj')
-        assert(len(obj_files) > 0)
+        assert len(obj_files) > 0 and "could not find .obj file"
         mesh_file_name = obj_files[0]
         mesh_file_name_full = os.path.join(dir_name, mesh_file_name)
         #logging.error('Loading building from obj file: %s', mesh_file_name_full)
-        print("%sLoading building mesh from obj:" % (color_blue),
-              mesh_file_name_full, "%s" % (color_reset))
+        print("%sLoading building mesh from obj:" % (color_text["blue"]),
+              mesh_file_name_full, "%s" % (color_text["reset"]))
         shape = renderer.Shape(mesh_file_name_full, load_materials=True,
                                name_prefix=building['name'] + '_', materials_scale=materials_scale)
         return [shape]
@@ -67,7 +64,7 @@ class Loader():
     def load_data(self, name, robot, flip=False):
         env = Foo(padding=10, resolution=5, num_point_threshold=2,
                   valid_min=-10, valid_max=200, n_samples_per_face=200)
-        building = mp_env.Building(self, name, robot, env, flip=flip)
+        building = Building(self, name, robot, env, flip=flip)
         return building
 
     def load_random_human(self, speed, gender, human_materials, body_shape, rng):
