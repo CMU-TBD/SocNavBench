@@ -36,7 +36,7 @@ class DubinsCar(Dynamics):
         angular_speed_nk1 = w * np.ones((n, k, 1), dtype=dtype)
         return SystemConfig(dt=dt, n=n, k=k, position_nk2=position_nk2,
                             heading_nk1=heading_nk1, speed_nk1=speed_nk1,
-                            angular_speed_nk1=angular_speed_nk1, variable=False)
+                            angular_speed_nk1=angular_speed_nk1)
 
     # TODO: Currently calling numpy() here as tfe.DEVICE_PLACEMENT_SILENT
     # is not working to place non-gpu ops (i.e. mod) on the cpu

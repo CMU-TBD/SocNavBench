@@ -1,8 +1,17 @@
+from typing import Optional
+from trajectory.trajectory import SystemConfig, Trajectory
 import numpy as np
 from metrics.cost_utils import *
 
 
-def asym_gauss_from_vel(x, y, velx, vely, xc=0, yc=0):
+def asym_gauss_from_vel(
+    x: float,
+    y: float,
+    velx: float,
+    vely: float,
+    xc: Optional[float] = 0,
+    yc: Optional[float] = 0,
+) -> np.ndarray:
     """
     computation of the value of an arbitrarily rotated (by theta)
     centered at (xc, yc)
@@ -22,7 +31,14 @@ def asym_gauss_from_vel(x, y, velx, vely, xc=0, yc=0):
     return asym_gauss(x, y, theta, sig_theta, xc=xc, yc=yc)
 
 
-def asym_gauss(x, y, theta=0, sig_theta=2, xc=0, yc=0):
+def asym_gauss(
+    x: float,
+    y: float,
+    theta: Optional[float] = 0,
+    sig_theta: Optional[float] = 2,
+    xc: Optional[float] = 0,
+    yc: Optional[float] = 0,
+) -> np.ndarray:
     """
     computation of the value of an arbitrarily rotated (by theta)
     centered at (xc, yc)
@@ -50,13 +66,14 @@ def asym_gauss(x, y, theta=0, sig_theta=2, xc=0, yc=0):
     c = ((np.sin(theta) / sigma) ** 2 + (np.cos(theta) / sig_s) ** 2) / 2
 
     # gaussian
-    agxy = np.exp(-(a * (x - xc) ** 2 + 2 * b * (x - xc)
-                    * (y - yc) + c * (y - yc) ** 2))
+    agxy = np.exp(
+        -(a * (x - xc) ** 2 + 2 * b * (x - xc) * (y - yc) + c * (y - yc) ** 2)
+    )
 
     return agxy
 
 
-def path_length(trajectory):
+def path_length(trajectory: Trajectory) -> float:
     if trajectory.shape[-1] == 3:
         trajectory = trajectory[:, :-1]
     distance_sq = np.sum(np.power(np.diff(trajectory, axis=0), 2), axis=1)
@@ -64,7 +81,9 @@ def path_length(trajectory):
     return distance
 
 
-def path_length_ratio(trajectory, goal_config=None):
+def path_length_ratio(
+    trajectory: Trajectory, goal_config: Optional[SystemConfig] = None
+) -> float:
     """
     Returns displacement/distance -- displacement may be zero
     (Distance is an approximation based on the time resolution of stored trajectory)
@@ -86,7 +105,9 @@ def path_length_ratio(trajectory, goal_config=None):
     return distance / displacement
 
 
-def path_irregularity(trajectory, goal_config=None):
+def path_irregularity(
+    trajectory: Trajectory, goal_config: Optional[SystemConfig] = None
+) -> float:
     """
     defined as the amount of unnecessary turning per unit path length performed by a robot,
     where unnecessary turning corresponds to the
@@ -97,16 +118,17 @@ def path_irregularity(trajectory, goal_config=None):
     """
     if goal_config is None:
         goal_config = trajectory[-1, :]
-    assert (trajectory.shape[-1] == 3 and goal_config.shape[-1] == 3)
+    assert trajectory.shape[-1] == 3 and goal_config.shape[-1] == 3
 
     # To compute the per step angle away from straight line to goal
     # compute the ray to goal from each traj step
     traj_xy = trajectory[:, :-1]
     point_to_goal_traj = goal_config[:-1] - traj_xy
     # cos inv of dot product of vectors
-    cos_theta = np.sum(point_to_goal_traj * traj_xy, axis=1) \
-        / (np.linalg.norm(point_to_goal_traj, axis=1) *
-           np.linalg.norm(traj_xy, axis=1) + (1 / 1E10))
+    cos_theta = np.sum(point_to_goal_traj * traj_xy, axis=1) / (
+        np.linalg.norm(point_to_goal_traj, axis=1) * np.linalg.norm(traj_xy, axis=1)
+        + (1 / 1e10)
+    )
     theta_to_goal_traj = np.arccos(cos_theta)
     path_irr = np.sum(np.abs(theta_to_goal_traj)) / len(theta_to_goal_traj)
 

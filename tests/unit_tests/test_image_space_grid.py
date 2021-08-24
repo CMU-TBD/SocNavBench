@@ -1,10 +1,10 @@
 import numpy as np
-from utils.utils import color_green, color_reset
-from waypoint_grids.projected_image_space_grid import ProjectedImageSpaceGrid
 from dotmap import DotMap
+from utils.utils import color_text
+from waypoint_grids.projected_image_space_grid import ProjectedImageSpaceGrid
 
 
-def create_params():
+def create_params() -> DotMap:
     p = DotMap()
 
     p.grid = ProjectedImageSpaceGrid
@@ -12,27 +12,24 @@ def create_params():
     # Parameters for the uniform sampling grid
     p.num_waypoints = 20000
     p.num_theta_bins = 21
-    p.bound_min = [0., 0., -np.pi]
-    p.bound_max = [0., 0., 0.]
+    p.bound_min = [0.0, 0.0, -np.pi]
+    p.bound_max = [0.0, 0.0, 0.0]
 
     # Additional parameters for the projected grid from the image space to the world coordinates
     p.projected_grid_params = DotMap(
         # Focal length in meters
-        f=1.,
-
+        f=1.0,
         # Half-field of view
         fov=np.pi / 4,
-
         # Height of the camera from the ground in meters
-        h=1.,
-
+        h=1.0,
         # Tilt of the camera
-        tilt=0.
+        tilt=0.0,
     )
     return p
 
 
-def test_image_space_grid():
+def test_image_space_grid() -> None:
     # Create parameters
     p = create_params()
 
@@ -40,43 +37,61 @@ def test_image_space_grid():
     grid = p.grid(p)
 
     # Check if the image bounds are correct
-    assert np.isclose(p.bound_min[0], -1., 1e-3)
-    assert np.isclose(p.bound_max[0], 1., 1e-3)
+    assert np.isclose(p.bound_min[0], -1.0, 1e-3)
+    assert np.isclose(p.bound_max[0], 1.0, 1e-3)
 
     # Define some waypoints in the image space
-    waypt_image_space = np.array([[1., 0.5, 0.],
-                                  [1., 1., np.pi / 4],
-                                  [-1., 0.5, -np.pi / 4]])[:, :, np.newaxis]
+    waypt_image_space = np.array(
+        [[1.0, 0.5, 0.0], [1.0, 1.0, np.pi / 4], [-1.0, 0.5, -np.pi / 4]]
+    )[:, :, np.newaxis]
 
     # Corresponding waypoints in the world frame (computed using the projection equation, except the angle)
-    waypt_world_space = np.array([[2., -2., 0.],
-                                  [1., -1., 0.],
-                                  [2., 2., 0.]])[:, :, np.newaxis]
+    waypt_world_space = np.array([[2.0, -2.0, 0.0], [1.0, -1.0, 0.0], [2.0, 2.0, 0.0]])[
+        :, :, np.newaxis
+    ]
 
     # Check using the projection functions
-    waypt_world_space_estimated_x, waypt_world_space_estimated_y, waypt_world_space_estimated_theta, _, _ = \
-        grid.generate_worldframe_waypoints_from_imageframe_waypoints(waypt_image_space[:, 0:1, :],
-                                                                     waypt_image_space[:,
-                                                                                       1:2, :],
-                                                                     waypt_image_space[:, 2:3, :])
-    waypt_image_space_estimated_x, waypt_image_space_estimated_y, waypt_image_space_estimated_theta, _, _ = \
-        grid.generate_imageframe_waypoints_from_worldframe_waypoints(waypt_world_space_estimated_x,
-                                                                     waypt_world_space_estimated_y,
-                                                                     waypt_world_space_estimated_theta)
+    (
+        waypt_world_space_estimated_x,
+        waypt_world_space_estimated_y,
+        waypt_world_space_estimated_theta,
+        _,
+        _,
+    ) = grid.generate_worldframe_waypoints_from_imageframe_waypoints(
+        waypt_image_space[:, 0:1, :],
+        waypt_image_space[:, 1:2, :],
+        waypt_image_space[:, 2:3, :],
+    )
+    (
+        waypt_image_space_estimated_x,
+        waypt_image_space_estimated_y,
+        waypt_image_space_estimated_theta,
+        _,
+        _,
+    ) = grid.generate_imageframe_waypoints_from_worldframe_waypoints(
+        waypt_world_space_estimated_x,
+        waypt_world_space_estimated_y,
+        waypt_world_space_estimated_theta,
+    )
     # Assert image and world frame x, y points
     assert np.allclose(
-        waypt_image_space_estimated_x[:, 0, 0], waypt_image_space[:, 0, 0], 1e-3)
+        waypt_image_space_estimated_x[:, 0, 0], waypt_image_space[:, 0, 0], 1e-3
+    )
     assert np.allclose(
-        waypt_image_space_estimated_y[:, 0, 0], waypt_image_space[:, 1, 0], 1e-3)
+        waypt_image_space_estimated_y[:, 0, 0], waypt_image_space[:, 1, 0], 1e-3
+    )
     assert np.allclose(
-        waypt_image_space_estimated_theta[:, 0, 0], waypt_image_space[:, 2, 0], 1e-3)
+        waypt_image_space_estimated_theta[:, 0, 0], waypt_image_space[:, 2, 0], 1e-3
+    )
     assert np.allclose(
-        waypt_world_space_estimated_x[:, 0, 0], waypt_world_space[:, 0, 0], 1e-3)
+        waypt_world_space_estimated_x[:, 0, 0], waypt_world_space[:, 0, 0], 1e-3
+    )
     assert np.allclose(
-        waypt_world_space_estimated_y[:, 0, 0], waypt_world_space[:, 1, 0], 1e-3)
+        waypt_world_space_estimated_y[:, 0, 0], waypt_world_space[:, 1, 0], 1e-3
+    )
 
 
-def visualize_world_space_grid():
+def visualize_world_space_grid() -> None:
     # Create parameters
     p = create_params()
 
@@ -86,10 +101,11 @@ def visualize_world_space_grid():
 
     # Plot the waypoints
     import matplotlib.pyplot as plt
+
     fig = plt.figure()
     # Projected Grid
     ax1 = fig.add_subplot(221)
-    ax1.plot(wx_n11[:, 0, 0], wy_n11[:, 0, 0], 'o')
+    ax1.plot(wx_n11[:, 0, 0], wy_n11[:, 0, 0], "o")
     # Projected x points
     ax2 = fig.add_subplot(222)
     ax2.hist(wx_n11[:, 0, 0])
@@ -99,15 +115,18 @@ def visualize_world_space_grid():
     # Projected theta points
     ax4 = fig.add_subplot(224)
     ax4.hist(wtheta_n11[:, 0, 0])
-    fig.savefig('projected_waypoints.pdf')
+    fig.savefig("projected_waypoints.pdf")
 
 
-def main_test():
+def main_test() -> None:
     np.random.seed(seed=1)
     test_image_space_grid()
     # visualize_world_space_grid()
-    print("%sImage space grid tests passed!%s" % (color_green, color_reset))
+    print(
+        "%sImage space grid tests passed!%s"
+        % (color_text["green"], color_text["reset"])
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main_test()

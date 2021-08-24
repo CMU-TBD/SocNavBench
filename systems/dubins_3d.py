@@ -88,7 +88,7 @@ class Dubins3D(DubinsCar):
         angular_speed_nk1 = self._saturate_angular_velocity(angular_speed_nk1)
         return Trajectory(dt=self._dt, n=n, k=k, position_nk2=position_nk2,
                           heading_nk1=heading_nk1, speed_nk1=speed_nk1,
-                          angular_speed_nk1=angular_speed_nk1, variable=False)
+                          angular_speed_nk1=angular_speed_nk1)
 
     def compute_noise_component(self, required_shape, data_type):
         """

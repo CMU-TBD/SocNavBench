@@ -1,12 +1,12 @@
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+from dotmap import DotMap
 from trajectory.spline.spline_3rd_order import Spline3rdOrder
 from trajectory.trajectory import SystemConfig
-from dotmap import DotMap
-from utils.utils import color_reset, color_green
+from utils.utils import color_text
 
 
-def test_spline_3rd_order(visualize=False):
+def test_spline_3rd_order(visualize=False) -> None:
     """
     Create a start and goal states, fit a spline from the two points
     assert tests ensure that the difference between the computed points
@@ -14,12 +14,12 @@ def test_spline_3rd_order(visualize=False):
     """
     np.random.seed(seed=1)
     n = 5
-    dt = .01
+    dt = 0.01
     k = 100
 
     target_state = np.random.uniform(-np.pi, np.pi, 3)
-    v0 = np.random.uniform(0., 0.5, 1)[0]  # Initial speed
-    vf = 0.
+    v0 = np.random.uniform(0.0, 0.5, 1)[0]  # Initial speed
+    vf = 0.0
 
     # Initial SystemConfig is [0, 0, 0, v0, 0]
     start_speed_nk1 = np.ones((n, 1, 1), dtype=np.float32) * v0
@@ -30,11 +30,15 @@ def test_spline_3rd_order(visualize=False):
     goal_heading_nk1 = np.ones((n, 1, 1), dtype=np.float32) * target_state[2]
     goal_speed_nk1 = np.ones((n, 1, 1), dtype=np.float32) * vf
 
-    start_config = SystemConfig(
-        dt, n, 1, speed_nk1=start_speed_nk1, variable=False)
-    goal_config = SystemConfig(dt, n, 1, position_nk2=goal_pos_nk2,
-                               speed_nk1=goal_speed_nk1, heading_nk1=goal_heading_nk1,
-                               variable=True)
+    start_config = SystemConfig(dt, n, 1, speed_nk1=start_speed_nk1)
+    goal_config = SystemConfig(
+        dt=dt,
+        n=n,
+        k=1,
+        position_nk2=goal_pos_nk2,
+        speed_nk1=goal_speed_nk1,
+        heading_nk1=goal_heading_nk1,
+    )
 
     start_nk5 = start_config.position_heading_speed_and_angular_speed_nk5()
     start_n5 = start_nk5[:, 0]
@@ -43,7 +47,7 @@ def test_spline_3rd_order(visualize=False):
     goal_n5 = goal_nk5[:, 0]
 
     p = DotMap(spline_params=DotMap(epsilon=1e-5))
-    ts_nk = np.tile(np.linspace(0., dt * k, k)[None], [n, 1])
+    ts_nk = np.tile(np.linspace(0.0, dt * k, k)[None], [n, 1])
     spline_traj = Spline3rdOrder(dt=dt, k=k, n=n, params=p.spline_params)
     spline_traj.fit(start_config, goal_config, factors=None)
     spline_traj.eval_spline(ts_nk, calculate_speeds=True)
@@ -52,13 +56,13 @@ def test_spline_3rd_order(visualize=False):
     v_nk1 = spline_traj.speed_nk1()
     start_pos_diff = (pos_nk3 - start_n5[:, None, :3])[:, 0]
     goal_pos_diff = (pos_nk3 - goal_n5[:, None, :3])[:, -1]
-    assert(np.allclose(start_pos_diff, np.zeros((n, 3)), atol=1e-6))
-    assert(np.allclose(goal_pos_diff, np.zeros((n, 3)), atol=1e-6))
+    assert np.allclose(start_pos_diff, np.zeros((n, 3)), atol=1e-6)
+    assert np.allclose(goal_pos_diff, np.zeros((n, 3)), atol=1e-6)
 
     start_vel_diff = (v_nk1 - start_n5[:, None, 3:4])[:, 0]
     goal_vel_diff = (v_nk1 - goal_n5[:, None, 3:4])[:, -1]
-    assert(np.allclose(start_vel_diff, np.zeros((n, 1)), atol=1e-6))
-    assert(np.allclose(goal_vel_diff, np.zeros((n, 1)), atol=1e-6))
+    assert np.allclose(start_vel_diff, np.zeros((n, 1)), atol=1e-6)
+    assert np.allclose(goal_vel_diff, np.zeros((n, 1)), atol=1e-6)
 
     if visualize:
         fig = plt.figure()
@@ -67,28 +71,27 @@ def test_spline_3rd_order(visualize=False):
 
         spline_traj.render(ax, freq=4)
         # plt.show()
-        fig.savefig('./tests/spline/test_spline.png',
-                    bbox_inches='tight', pad_inches=0)
+        fig.savefig("./tests/spline/test_spline.png", bbox_inches="tight", pad_inches=0)
 
 
-def test_piecewise_spline(visualize=False):
+def test_piecewise_spline(visualize=False) -> None:
     # Testing with splines
     np.random.seed(seed=1)
-    n = 5    # Batch size (unused now)
-    dt = .01  # delta-t: time intervals
+    n = 5  # Batch size (unused now)
+    dt = 0.01  # delta-t: time intervals
     k = 100  # Number of time-steps (should be 1/dt)
 
     # States represents each individual tangent point that the spline will pass through
     # states[0] = initial state, and states[len(states) - 1] = terminal state
     states = [
-        (8, 12, np.pi / 2.0, 0.5),    # Start State (x, y, theta, vel)
+        (8, 12, np.pi / 2.0, 0.5),  # Start State (x, y, theta, vel)
         (15, 14.5, np.pi / 2.0, 0.8),  # Middle State (x, y, theta, vel)
-        (10, 15, -np.pi / 2.0, 1),    # Middle State (x, y, theta, vel)
-        (18, 16.5, np.pi / 2.0, 0.2)  # Goal State (x, y, theta, vel)
+        (10, 15, -np.pi / 2.0, 1),  # Middle State (x, y, theta, vel)
+        (18, 16.5, np.pi / 2.0, 0.2),  # Goal State (x, y, theta, vel)
     ]
 
     p = DotMap(spline_params=DotMap(epsilon=1e-5))
-    ts_nk = np.tile(np.linspace(0., dt * k, k)[None], [n, 1])
+    ts_nk = np.tile(np.linspace(0.0, dt * k, k)[None], [n, 1])
     splines = []
     prev_config = None
     next_config = None
@@ -100,22 +103,21 @@ def test_piecewise_spline(visualize=False):
             # Rewrite the previous state config with the 'old' next one
             prev_config = next_config
         # Generate position
-        s_posx_nk1 = np.ones((n, 1, 1), dtype=np.float32) * \
-            s[0]  # X position matrix
-        s_posy_nk1 = np.ones((n, 1, 1), dtype=np.float32) * \
-            s[1]  # Y position matrix
+        s_posx_nk1 = np.ones((n, 1, 1), dtype=np.float32) * s[0]  # X position matrix
+        s_posy_nk1 = np.ones((n, 1, 1), dtype=np.float32) * s[1]  # Y position matrix
         # combined matrix of (X,Y)
         s_pos_nk2 = np.concatenate([s_posx_nk1, s_posy_nk1], axis=2)
         # Generate speed and heading
-        heading_nk1 = np.ones((n, 1, 1), dtype=np.float32) * \
-            s[2]  # Theta angle matrix
+        heading_nk1 = np.ones((n, 1, 1), dtype=np.float32) * s[2]  # Theta angle matrix
         speed_nk1 = np.ones((n, 1, 1), dtype=np.float32) * s[3]  # Speed matrix
-        next_config = SystemConfig(dt, n, 1,
-                                   position_nk2=s_pos_nk2,
-                                   speed_nk1=speed_nk1,
-                                   heading_nk1=heading_nk1,
-                                   variable=False
-                                   )
+        next_config = SystemConfig(
+            dt=dt,
+            n=n,
+            k=1,
+            position_nk2=s_pos_nk2,
+            speed_nk1=speed_nk1,
+            heading_nk1=heading_nk1,
+        )
         # Append to the trajectory if a new trajectory can be constructed
         # Note that any spline needs a 'previous' and 'next' state
         if prev_config is not None:
@@ -135,26 +137,30 @@ def test_piecewise_spline(visualize=False):
         fig = plt.figure()
         fig, ax = plt.subplots(4, 1, figsize=(5, 15), squeeze=False)
         final_spline.render_multi(
-            ax, freq=4, plot_heading=True, plot_velocity=True, label_start_and_end=True)
+            ax, freq=4, plot_heading=True, plot_velocity=True, label_start_and_end=True
+        )
         # trajectory.render(ax, freq=1, plot_heading=True, plot_velocity=True, label_start_and_end=True)
-        fig.savefig('./tests/spline/test_piecewise_spline.png',
-                    bbox_inches='tight', pad_inches=0)
+        fig.savefig(
+            "./tests/spline/test_piecewise_spline.png",
+            bbox_inches="tight",
+            pad_inches=0,
+        )
 
 
-def test_spline_rescaling():
+def test_spline_rescaling() -> None:
     # Set the random seed
     np.random.seed(seed=1)
 
     # Spline trajectory params
     n = 2
-    dt = .1
+    dt = 0.1
     k = 10
-    final_times_n1 = np.array([[2.], [1.]])
+    final_times_n1 = np.array([[2.0], [1.0]])
 
     # Goal states and initial speeds
-    goal_posx_n11 = np.array([[[0.4]], [[1.]]])
-    goal_posy_n11 = np.array([[[0.]], [[1.]]])
-    goal_heading_n11 = np.array([[[0.]], [[np.pi / 2]]])
+    goal_posx_n11 = np.array([[[0.4]], [[1.0]]])
+    goal_posy_n11 = np.array([[[0.0]], [[1.0]]])
+    goal_heading_n11 = np.array([[[0.0]], [[np.pi / 2]]])
     start_speed_nk1 = np.ones((2, 1, 1), dtype=np.float32) * 0.5
 
     # Define the maximum speed, angular speed and maximum horizon
@@ -162,14 +168,14 @@ def test_spline_rescaling():
     max_angular_speed = 1.1
 
     # Define start and goal configurations
-    start_config = SystemConfig(
-        dt, n, 1, speed_nk1=start_speed_nk1, variable=False)
-    goal_config = SystemConfig(dt, n,
-                               k=1,
-                               position_nk2=np.concatenate(
-                                   [goal_posx_n11, goal_posy_n11], axis=2),
-                               heading_nk1=goal_heading_n11,
-                               variable=True)
+    start_config = SystemConfig(dt, n, 1, speed_nk1=start_speed_nk1)
+    goal_config = SystemConfig(
+        dt=dt,
+        n=n,
+        k=1,
+        position_nk2=np.concatenate([goal_posx_n11, goal_posy_n11], axis=2),
+        heading_nk1=goal_heading_n11,
+    )
 
     # Fit the splines
     p = DotMap(spline_params=DotMap(epsilon=1e-5))
@@ -177,20 +183,25 @@ def test_spline_rescaling():
     spline_trajs.fit(start_config, goal_config, final_times_n1, factors=None)
 
     # Evaluate the splines
-    ts_nk = np.stack([np.linspace(0., final_times_n1[0, 0], 100),
-                      np.linspace(0., final_times_n1[1, 0], 100)], axis=0)
+    ts_nk = np.stack(
+        [
+            np.linspace(0.0, final_times_n1[0, 0], 100),
+            np.linspace(0.0, final_times_n1[1, 0], 100),
+        ],
+        axis=0,
+    )
     spline_trajs.eval_spline(ts_nk, calculate_speeds=True)
 
     # Compute the required horizon
     required_horizon_n1 = spline_trajs.compute_dynamically_feasible_horizon(
-        max_speed, max_angular_speed)
+        max_speed, max_angular_speed
+    )
     assert required_horizon_n1[0, 0] < final_times_n1[0, 0]
     assert required_horizon_n1[1, 0] > final_times_n1[1, 0]
 
     # Compute the maximum speed and angular speed
     max_speed_n1 = np.amax(spline_trajs.speed_nk1(), axis=1)
-    max_angular_speed_n1 = np.amax(
-        np.abs(spline_trajs.angular_speed_nk1()), axis=1)
+    max_angular_speed_n1 = np.amax(np.abs(spline_trajs.angular_speed_nk1()), axis=1)
     assert max_speed_n1[0, 0] < max_speed
     assert max_angular_speed_n1[0, 0] < max_angular_speed
     assert max_speed_n1[1, 0] > max_speed
@@ -198,32 +209,30 @@ def test_spline_rescaling():
 
     # Rescale horizon so that the trajectories are dynamically feasible
     spline_trajs.rescale_spline_horizon_to_dynamically_feasible_horizon(
-        max_speed, max_angular_speed)
-    assert np.allclose(spline_trajs.final_times_n1,
-                       required_horizon_n1, atol=1e-2)
+        max_speed, max_angular_speed
+    )
+    assert np.allclose(spline_trajs.final_times_n1, required_horizon_n1, atol=1e-2)
 
     # Compute the maximum speed and angular speed
     max_speed_n1 = np.amax(spline_trajs.speed_nk1(), axis=1)
-    max_angular_speed_n1 = np.amax(
-        np.abs(spline_trajs.angular_speed_nk1()), axis=1)
+    max_angular_speed_n1 = np.amax(np.abs(spline_trajs.angular_speed_nk1()), axis=1)
     assert max_speed_n1[0, 0] <= max_speed
     assert max_angular_speed_n1[0, 0] <= max_angular_speed
     assert max_speed_n1[1, 0] <= max_speed
     assert max_angular_speed_n1[1, 0] <= max_angular_speed
 
     # Find the spline trajectories that are valid
-    valid_idxs_n = spline_trajs.find_trajectories_within_a_horizon(
-        horizon_s=2.)
+    valid_idxs_n = spline_trajs.find_trajectories_within_a_horizon(horizon_s=2.0)
     assert valid_idxs_n.shape == (1,)
     assert valid_idxs_n[0] == 0
 
 
-def main_test():
+def main_test() -> None:
     test_spline_3rd_order(visualize=False)
     test_spline_rescaling()
     test_piecewise_spline(visualize=False)
-    print("%sSpline tests passed!%s" % (color_green, color_reset))
+    print("%sSpline tests passed!%s" % (color_text["green"], color_text["reset"]))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main_test()

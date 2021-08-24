@@ -1,10 +1,10 @@
 #ifndef SIMSTATE_H
 #define SIMSTATE_H
 
-#include <unordered_map>
 #include "agents.hpp"
+#include <unordered_map>
 
-/** 
+/**
  * @brief A snapshot of the simulator at a particular time
  * @param[out] robot The robot's AgentState in the simulator
  * @param[out] robot_on The robot's status
@@ -14,8 +14,10 @@
  */
 class SimState
 {
-public:
-    SimState() {}
+  public:
+    SimState()
+    {
+    }
     /** @brief Constructor for SimState instances
      * @param[in] robot_agent The AgentState of the robot in the simulator
      * @param[in] rob_on The status of the robot (on or off)
@@ -23,8 +25,7 @@ public:
      * @param[in] peds The map of pedestrians (name -> AgentState) in the simulator
      * @param[in] term_cause The termination cause of the robot if applicable
      * */
-    SimState(AgentState &r, bool rob_on, float sim_time,
-             unordered_map<string, AgentState> &peds, string &term_cause)
+    SimState(AgentState &r, bool rob_on, float sim_time, unordered_map<string, AgentState> &peds, string &term_cause)
     {
         robot = r;
         robot_on = rob_on;
@@ -34,21 +35,36 @@ public:
     }
 
     /* @brief getter for the robot AgentState instance in this SimState */
-    const AgentState get_robot() const { return robot; }
+    const AgentState get_robot() const
+    {
+        return robot;
+    }
 
     /* @brief getter for the power-status of the robot, powered on or off */
-    const bool get_robot_status() const { return robot_on; }
+    const bool get_robot_status() const
+    {
+        return robot_on;
+    }
 
     /* @brief getter for the simulator time for when this SimState was captured */
-    const float get_sim_t() const { return simulator_time; }
+    const float get_sim_t() const
+    {
+        return simulator_time;
+    }
 
     /* @brief getter for the Robot's termination cause if applicable */
-    const string get_termination_cause() const { return termination_cause; }
+    const string get_termination_cause() const
+    {
+        return termination_cause;
+    }
 
     /* @brief getter for the SimState's pedestrian map (name -> AgentState) */
-    const unordered_map<string, AgentState> get_pedestrians() const { return pedestrians; }
+    const unordered_map<string, AgentState> get_pedestrians() const
+    {
+        return pedestrians;
+    }
 
-    /** 
+    /**
      * @brief Constructs a SimState instance from a json serialization
      * @param[in] json object to deserialize (parse) and interpret
      * @returns SimState with all the corresponding fields from the json object
@@ -83,7 +99,7 @@ public:
         return SimState(rob, rob_on, sim_t, peds, term_cause);
     }
 
-private:
+  private:
     /* Robot's AgentState (currently only one robot is supported) */
     AgentState robot;
     /* Status of the robot, powered on (true) or off (false) */

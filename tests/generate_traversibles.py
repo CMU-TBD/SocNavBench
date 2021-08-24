@@ -1,8 +1,9 @@
-from utils.utils import load_building
+from utils.socnav_utils import load_building
+
 from test_episodes import create_params
 
 
-def regenerate_all_traversibles():
+def regenerate_all_traversibles() -> None:
     # add custom maps here
     maps = ["DoubleHotel", "ETH", "Hotel", "Univ", "Zara"]
     p = create_params()

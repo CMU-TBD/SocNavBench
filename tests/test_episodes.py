@@ -1,20 +1,27 @@
-import numpy as np
 import random
+from typing import Dict, Tuple
+
+import numpy as np
+
 # Humanav
 from agents.humans.human import Human
-from agents.robot_agent import RobotAgent
 from agents.humans.recorded_human import PrerecordedHuman
+from agents.robot_agent import RobotAgent
+from dotmap import DotMap
+from params.central_params import create_socnav_params, get_seed
+
 # Planner + Simulator:
 from simulators.simulator import Simulator
-from params.central_params import get_seed, create_socnav_params
-from utils.utils import construct_environment
+from socnav.socnav_renderer import SocNavRenderer
+from trajectory.trajectory import SystemConfig
+from utils.socnav_utils import construct_environment
 
 # seed the random number generator
 random.seed(get_seed())
 
 
-def create_params():
-    p = create_socnav_params()
+def create_params() -> DotMap:
+    p: DotMap = create_socnav_params()
 
     # The camera is assumed to be mounted on a robot at fixed height
     # and fixed pitch. See params/central_params.py for more information
@@ -25,10 +32,12 @@ def create_params():
 
     # Introduce the robot params
     from params.central_params import create_robot_params
+
     p.robot_params = create_robot_params()
 
     # Introduce the episode params
     from params.central_params import create_episodes_params
+
     p.episode_params = create_episodes_params()
 
     # Tilt the camera 10 degree down from the horizontal axis
@@ -36,19 +45,19 @@ def create_params():
 
     if p.render_3D:
         # Can only render rgb and depth if the host has an available display
-        p.camera_params.modalities = ['rgb', 'disparity']
+        p.camera_params.modalities = ["rgb", "disparity"]
     else:
-        p.camera_params.modalities = ['occupancy_grid']
+        p.camera_params.modalities = ["occupancy_grid"]
 
     return p
 
 
-def test_episodes():
+def test_episodes() -> None:
     """
     Code for loading a random human into the environment
     and rendering topview, rgb, and depth images.
     """
-    p = create_params()  # used to instantiate the camera and its parameters
+    p: DotMap = create_params()  # used to instantiate the camera and its parameters
 
     RobotAgent.establish_joystick_handshake(p)
 
@@ -56,7 +65,9 @@ def test_episodes():
         episode = p.episode_params.tests[test]
 
         """Create the environment and renderer for the episode"""
-        environment, r = construct_environment(p, test, episode)
+        env_r = construct_environment(p, test, episode)
+        environment: Dict[str, float or int or np.ndarray] = env_r[0]
+        r: SocNavRenderer = env_r[1]
 
         """
         Creating planner, simulator, and control pipelines for the framework
@@ -65,33 +76,35 @@ def test_episodes():
         simulator = Simulator(environment, renderer=r, episode_params=episode)
 
         """Generate the autonomous human agents from the episode"""
-        Human.generate(simulator, p, episode.agents_start, episode.agents_end,
-                       environment, r)
+        new_humans = Human.generate_humans(p, episode.agents_start, episode.agents_end)
+        simulator.add_agents(new_humans)
 
         """Generate the robot in the simulator"""
         if not p.episode_params.without_robot:
-            RobotAgent.generate(simulator, p, episode.robot_start_goal)
+            robot_agent = RobotAgent.generate_robot(episode.robot_start_goal)
+            simulator.add_agent(robot_agent)
 
         """Add the prerecorded humans to the simulator"""
         for i, dataset in enumerate(episode.pedestrian_datasets):
             dataset_start_t = episode.datasets_start_t[i]
             dataset_ped_range = episode.ped_ranges[i]
-            PrerecordedHuman.generate(simulator, p, environment, r,
-                                      max_time=episode.max_time,
-                                      start_t=dataset_start_t,
-                                      ped_range=dataset_ped_range,
-                                      dataset=dataset
-                                      )
+            new_prerecs = PrerecordedHuman.generate_humans(
+                p,
+                max_time=episode.max_time,
+                start_t=dataset_start_t,
+                ped_range=dataset_ped_range,
+                dataset=dataset,
+            )
+            simulator.add_agents(new_prerecs)
 
-        # run simulation
+        # run simulation & render
         simulator.simulate()
-        # render the simulation result
-        simulator.render(r, None, filename=episode.name + "_obs")
+        simulator.render(r, filename=episode.name + "_obs")
 
     if not p.episode_params.without_robot:
         RobotAgent.close_robot_sockets()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # run basic room test with variable # of human
     test_episodes()

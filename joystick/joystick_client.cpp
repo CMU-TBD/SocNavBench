@@ -1,32 +1,32 @@
-#include <iostream>
-#include <vector>
-#include <unordered_map>
-#include <string>
 #include <cstdlib> // rand()
+#include <iostream>
+#include <string>
+#include <unordered_map>
+#include <vector>
 // external json parser (https://github.com/nlohmann/json)
-#include "joystick_cpp/json.hpp"
-#include "joystick_cpp/sockets.hpp"
-#include "joystick_cpp/episode.hpp"
 #include "joystick_cpp/agents.hpp"
+#include "joystick_cpp/episode.hpp"
+#include "joystick_cpp/json.hpp"
 #include "joystick_cpp/sim_state.hpp"
+#include "joystick_cpp/sockets.hpp"
 
 using namespace std;
 using json = nlohmann::json; // for convenience
 
-/** 
+/**
  * @brief wrapper of listen_once that parses the data into episode names
  * @param[in] episodes The vector of episode names to return
  */
 void get_all_episode_names(vector<string> &episodes);
 
-/** 
+/**
  * @brief wrapper of listen_once that parses the data of an episode's metadata
  * @param[in] ep_name The name of the episode that will be created
- * @param[out] ep The episode 
+ * @param[out] ep The episode
  */
 void get_episode_metadata(const string &title, Episode &ep);
 
-/** 
+/**
  * @brief run the sense() plan() act() loop of the joystick controller
  * @param[in] ep The episode metadata in the form of an Episode class
  */
@@ -65,35 +65,32 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-/** 
+/**
  * @brief sense action updating the robot status, sim state history and time
  * @param[out] robot_on The status of the robot (on or off)
  * @param[out] frame the current time frame of the simulator
  * @param[out] hist The sim_state history indexed by frame
  * @param[in] max_time The maximum time allocated for this episode
  */
-void joystick_sense(bool &robot_on, int &sim_time,
-                    unordered_map<int, SimState> &hist, const float max_time);
+void joystick_sense(bool &robot_on, int &sim_time, unordered_map<int, SimState> &hist, const float max_time);
 
-/** 
+/**
  * @brief planning algorithm of the robot given the sim history and time
  * @param[in] robot_on The status of the robot (on or off)
  * @param[in] frame the current time frame of the simulator
  * @param[in] hist The sim_state history indexed by frame
  */
-void joystick_plan(const bool robot_on, const int sim_t,
-                   const unordered_map<int, SimState> &hist);
+void joystick_plan(const bool robot_on, const int sim_t, const unordered_map<int, SimState> &hist);
 
-/** 
+/**
  * @brief sending act commands to the robot to execute
  * @param[in] robot_on The status of the robot (on or off)
  * @param[in] frame the current time frame of the simulator
  * @param[in] hist The sim_state history indexed by frame
  */
-void joystick_act(const bool robot_on, const int sim_t,
-                  const unordered_map<int, SimState> &hist);
+void joystick_act(const bool robot_on, const int sim_t, const unordered_map<int, SimState> &hist);
 
-/** 
+/**
  * @brief run the sense() plan() act() loop of the joystick controller
  * @param[in] ep The episode metadata in the form of an Episode class
  */
@@ -118,15 +115,14 @@ void update_loop(const Episode &ep)
          << "Finished episode: " << ep.get_title() << "\033[00m" << endl;
 }
 
-/** 
+/**
  * @brief sense action updating the robot status, sim state history and time
  * @param[out] robot_on The status of the robot (on or off)
  * @param[out] frame the current time frame of the simulator
  * @param[out] hist The sim_state history indexed by frame
  * @param[in] max_time The maximum time allocated for this episode
  */
-void joystick_sense(bool &robot_on, int &frame,
-                    unordered_map<int, SimState> &hist, const float max_time)
+void joystick_sense(bool &robot_on, int &frame, unordered_map<int, SimState> &hist, const float max_time)
 {
     vector<char> raw_data;
     // send keyword (trigger sense action) and await response
@@ -144,8 +140,8 @@ void joystick_sense(bool &robot_on, int &frame,
         cout.precision(3);
         cout << "\033[36m"
              << "\33[2K" // clear old line
-             << "Updated state of the world for time = " << new_state.get_sim_t()
-             << " out of " << max_time << "\033[00m\r" << flush;
+             << "Updated state of the world for time = " << new_state.get_sim_t() << " out of " << max_time
+             << "\033[00m\r" << flush;
         // add new sim_state to the history
         hist[frame] = new_state;
     }
@@ -153,20 +149,19 @@ void joystick_sense(bool &robot_on, int &frame,
         robot_on = false;
 }
 
-/** 
+/**
  * @brief planning algorithm of the robot given the sim history and time
  * @param[in] robot_on The status of the robot (on or off)
  * @param[in] frame the current time frame of the simulator
  * @param[in] hist The sim_state history indexed by frame
  */
-void joystick_plan(const bool robot_on, const int sim_t,
-                   const unordered_map<int, SimState> &hist)
+void joystick_plan(const bool robot_on, const int sim_t, const unordered_map<int, SimState> &hist)
 {
     // This is left blank as a random planner for now
     return;
 }
 
-/** 
+/**
  * @brief wrapper of send_to_robot that packages velocity cmds into json
  * @param[in] v The linear velocity component of the command
  * @param[in] w The angular velocity component of the command
@@ -184,14 +179,13 @@ void send_cmd(const float v, const float w)
     send_to_robot(message.dump());
 }
 
-/** 
+/**
  * @brief sending act commands to the robot to execute
  * @param[in] robot_on The status of the robot (on or off)
  * @param[in] frame the current time frame of the simulator
  * @param[in] hist The sim_state history indexed by frame
  */
-void joystick_act(const bool robot_on, const int frame,
-                  const unordered_map<int, SimState> &hist)
+void joystick_act(const bool robot_on, const int frame, const unordered_map<int, SimState> &hist)
 {
     string termination_cause;
     if (hist.find(frame) != hist.end())
@@ -215,12 +209,11 @@ void joystick_act(const bool robot_on, const int frame,
     }
     else
     {
-        cout << "\nPowering off joystick, robot terminated with: "
-             << termination_cause << endl;
+        cout << "\nPowering off joystick, robot terminated with: " << termination_cause << endl;
     }
 }
 
-/** 
+/**
  * @brief wrapper of listen_once that parses the data into episode names
  * @param[in] episodes The vector of episode names to return
  */
@@ -240,10 +233,10 @@ void get_all_episode_names(vector<string> &episodes)
     cout << "]" << endl;
 }
 
-/** 
+/**
  * @brief wrapper of listen_once that parses the data of an episode's metadata
  * @param[in] ep_name The name of the episode that will be created
- * @param[out] ep The episode 
+ * @param[out] ep The episode
  */
 void get_episode_metadata(const string &ep_name, Episode &ep)
 {
