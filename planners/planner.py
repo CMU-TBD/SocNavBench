@@ -13,11 +13,10 @@ class Planner(object):
         self.obj_fn = obj_fn
         self.params = params.planner.parse_params(params)
 
-        self.opt_waypt = SystemConfig(dt=params.dt, n=1, k=1, variable=True)
+        self.opt_waypt = SystemConfig(dt=params.dt, n=1, k=1)
         self.opt_traj = Trajectory(dt=params.dt,
                                    n=1,
-                                   k=params.planning_horizon,
-                                   variable=True)
+                                   k=params.planning_horizon)
         self.control_pipeline = self._init_control_pipeline()
 
     @staticmethod

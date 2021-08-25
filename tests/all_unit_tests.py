@@ -12,9 +12,9 @@ from unit_tests.test_obstacle_objective import main_test as test_obstacle_object
 from unit_tests.test_spline import main_test as test_spline
 from unit_tests.test_voxel_interpolation import main_test as test_voxel_interpolation
 from unit_tests.test_personal_cost import main_test as test_goal_psc
-from utils.utils import color_reset, color_green
+from utils.utils import color_text
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_coordinate_transform()
     test_cost_function()
     test_cost()
@@ -29,4 +29,4 @@ if __name__ == '__main__':
     test_obstacle_objective()
     test_spline()
     test_voxel_interpolation()
-    print("%s\nAll tests passed!%s" % (color_green, color_reset))
+    print("%s\nAll tests passed!%s" % (color_text["green"], color_text["reset"]))

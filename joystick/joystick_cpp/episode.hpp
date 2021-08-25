@@ -1,16 +1,16 @@
 #ifndef EPISODE_H
 #define EPISODE_H
 
-#include <string>
-#include <vector>
-#include <unordered_map>
 #include "agents.hpp"
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 using namespace std;
 
 /**
  * @brief Container for the "environment" which holds the traversibles along with
- * the map scale. 
+ * the map scale.
  * */
 struct env_t
 {
@@ -24,12 +24,10 @@ struct env_t
         building_traversible = {};
         human_traversible = {};
     }
-    /** 
+    /**
      * @brief Update the fields in the environment
      * */
-    void update_environment(vector<vector<int>> &building_trav,
-                            vector<vector<int>> &human_trav,
-                            float scale)
+    void update_environment(vector<vector<int>> &building_trav, vector<vector<int>> &human_trav, float scale)
     {
         dx_scale = scale;
         building_traversible = building_trav;
@@ -39,10 +37,12 @@ struct env_t
 
 class Episode
 {
-public:
-    Episode() {}
+  public:
+    Episode()
+    {
+    }
 
-    /** @brief Constructor for Episode instance 
+    /** @brief Constructor for Episode instance
      * @param[in] name The title of the episode
      * @param[in] building_trav The traversible of the building in the environment
      * @param[in] human_trav The traversible of the humans in the environment
@@ -52,10 +52,8 @@ public:
      * @param[in] r_start The starting config of the robot
      * @param[in] r_goal The goal config of the robot
      * */
-    Episode(string &name, vector<vector<int>> &building_trav,
-            vector<vector<int>> &human_trav, float scale,
-            unordered_map<string, AgentState> &a, float t_budget,
-            vector<float> &r_start, vector<float> &r_goal)
+    Episode(string &name, vector<vector<int>> &building_trav, vector<vector<int>> &human_trav, float scale,
+            unordered_map<string, AgentState> &a, float t_budget, vector<float> &r_start, vector<float> &r_goal)
     {
         title = name;
         env.update_environment(building_trav, human_trav, scale);
@@ -65,37 +63,55 @@ public:
         robot_goal = r_goal;
     }
     /*** @brief getter for the title of the episode*/
-    string get_title() const { return title; }
+    string get_title() const
+    {
+        return title;
+    }
 
     /**
      * @brief getter for the robot's start config
      * @returns vector<float> Config containing (x, y, theta)
      */
-    vector<float> get_robot_start() const { return robot_start; }
+    vector<float> get_robot_start() const
+    {
+        return robot_start;
+    }
 
     /**
      * @brief getter for the robot's goal config
      * @returns vector<float> Config containing (x, y, theta)
      */
-    vector<float> get_robot_goal() const { return robot_goal; }
+    vector<float> get_robot_goal() const
+    {
+        return robot_goal;
+    }
 
     /**
      * @brief getter for an agent map (only pedestrians)
      * @returns An unordered_map mapping pedestrian names to their AgentStates
      */
-    unordered_map<string, AgentState> get_agents() const { return agents; }
+    unordered_map<string, AgentState> get_agents() const
+    {
+        return agents;
+    }
 
     /*** @brief getter for the maximum time allowed for this episode*/
-    const float get_time_budget() const { return max_time_s; }
+    const float get_time_budget() const
+    {
+        return max_time_s;
+    }
 
     /*** @brief getter for the environment data
-     * @returns env_t A struct containing the building & human traversible, 
+     * @returns env_t A struct containing the building & human traversible,
      * room scale, and room center. */
-    env_t get_environment() const { return env; }
+    env_t get_environment() const
+    {
+        return env;
+    }
 
     /**
      * @brief Construct en Episode instance from its serialized json representation
-     * 
+     *
      * @param[in] metadata (const &json) : the json data to take in
      * @returns Episode Instance with the corresponding fields
      * */
@@ -119,8 +135,7 @@ public:
         // float dx_m = env["map_scale"];
 
         // pedestrian data as a map between name and agent
-        unordered_map<string, AgentState> agents =
-            AgentState::construct_from_dict(metadata["pedestrians"]);
+        unordered_map<string, AgentState> agents = AgentState::construct_from_dict(metadata["pedestrians"]);
 
         // maximum time budgeted for this episode
         float max_time = metadata["episode_max_time"];
@@ -134,8 +149,7 @@ public:
         vector<float> r_start = robot["start_config"];
         vector<float> r_goal = robot["goal_config"];
 
-        return Episode(title, map_trav, h_trav, dx_m, agents, max_time,
-                       r_start, r_goal);
+        return Episode(title, map_trav, h_trav, dx_m, agents, max_time, r_start, r_goal);
     }
 
     /**
@@ -149,16 +163,14 @@ public:
         float start_x = get_robot_start()[0];
         float start_y = get_robot_start()[1];
         float start_theta = get_robot_start()[2];
-        cout << "Robot start: " << start_x << ", " << start_y
-             << ", " << start_theta << endl;
+        cout << "Robot start: " << start_x << ", " << start_y << ", " << start_theta << endl;
         float goal_x = get_robot_goal()[0];
         float goal_y = get_robot_goal()[1];
         float goal_theta = get_robot_goal()[2];
-        cout << "Robot goal: " << goal_x << ", " << goal_y
-             << ", " << goal_theta << endl;
+        cout << "Robot goal: " << goal_x << ", " << goal_y << ", " << goal_theta << endl;
     }
 
-private:
+  private:
     /* name of the episode, eg: "test_socnav" */
     string title;
     /* environment struct holding the human/building traversible & map metadata */

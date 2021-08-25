@@ -241,7 +241,7 @@ class ControlPipelineV0(ControlPipelineBase):
         # Initialize variable tensor for waypoints in world coordinates
         dt = self.params.system_dynamics_params.dt
         self.waypt_configs_world = [SystemConfig(
-            dt=dt, n=config.n, k=1, variable=True,
+            dt=dt, n=config.n, k=1,
             track_trajectory_acceleration=self.params.track_trajectory_acceleration) for config in data['start_configs']]
 
         self.instance_variables_loaded = True
@@ -272,7 +272,7 @@ class ControlPipelineV0(ControlPipelineBase):
         dt = self.params.system_dynamics_params.dt
         if _need_to_instantiate_tensors():
             if goal_config is None:
-                self.trajectories_world = [Trajectory(dt=dt, n=config.n, k=self.params.planning_horizon, variable=True,
+                self.trajectories_world = [Trajectory(dt=dt, n=config.n, k=self.params.planning_horizon,
                                                       track_trajectory_acceleration=self.params.track_trajectory_acceleration)
                                            for config in self.start_configs]
                 # There usually is not enough memory to instantiate a placeholder for both the lqr and spline
@@ -284,11 +284,9 @@ class ControlPipelineV0(ControlPipelineBase):
             else:
                 self.trajectories_world = [Trajectory(dt=dt, n=goal_config.n,
                                                       k=self.params.planning_horizon,
-                                                      variable=True,
                                                       track_trajectory_acceleration=self.params.track_trajectory_acceleration)]
                 self.spline_trajectories_world = [Trajectory(dt=dt, n=goal_config.n,
                                                              k=self.params.planning_horizon,
-                                                             variable=True,
                                                              track_trajectory_acceleration=self.params.track_trajectory_acceleration)]
                 if self.params.convert_K_to_world_coordinates:
                     self.Ks_world_nkfd = [np.zeros_like(self.K_nkfd[0][0:1])]
@@ -415,8 +413,7 @@ class ControlPipelineV0(ControlPipelineBase):
         waypt_pos_n12 = np.concatenate([wx_n11, wy_n11], axis=2)
         waypoint_egocentric_config = SystemConfig(dt=self.params.dt, n=self.waypoint_grid.n, k=1,
                                                   position_nk2=waypt_pos_n12, speed_nk1=wv_n11,
-                                                  heading_nk1=wtheta_n11, angular_speed_nk1=ww_n11,
-                                                  variable=True)
+                                                  heading_nk1=wtheta_n11, angular_speed_nk1=ww_n11)
         return waypoint_egocentric_config
 
     def _ensure_waypoints_valid(self, waypoints_egocentric):

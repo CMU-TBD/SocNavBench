@@ -46,7 +46,12 @@ For communications we use the `AF_UNIX` protocol for the fastest communications 
 For joystick implementations we have provided two sample joystick instances in `python` and one in `c++` under [`SocNavBench/joystick/`](joystick/):
 - `joystick_random.py` which uses a generic random planner, showcasing one of the simplest uses of the Joystick interface.
 - `joystick_planner.py` which uses a basic sampling planner that can take the robot to the goal without obstacle collisions (has no notion of pedestrians).
-- `joystick_client.cpp` which is a simple random planner as well, but in `c++`. Highlithgint the language-agnostic nature of the API.
+- `joystick_client.cpp` which is a simple random planner as well, but in `c++`. Highlighting the language-agnostic nature of the API.
+  - Note: To build our cpp client run 
+    ```bash
+    g++ -g joystick/joystick_client.cpp
+    ```
+    NOTE: if you get an error for `#include "joystick_cpp/json.hpp` then you'll need to download [this json c++ file](https://github.com/nlohmann/json/blob/develop/single_include/nlohmann/json.hpp) and place it in `joystick_cpp/`. We used this json implementation since it was simplest and self-contained. We'll probably make a `makefile` in an upcoming task.
 
 Note that the provided joystick implementations (in python) are still executed by running `joystick_client.py` but is defaulted to using the `joystick_planner` implementation. To use the `joystick_random` implementation you can toggle the flag for `use_random_planner` under `[joystick_params]` in [`user_params.ini`](params/user_params.ini).
 
