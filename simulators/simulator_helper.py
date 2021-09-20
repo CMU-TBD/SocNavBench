@@ -1,7 +1,8 @@
 import multiprocessing
+import os
 import threading
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import matplotlib as mpl
 import numpy as np
@@ -13,10 +14,10 @@ from dotmap import DotMap
 from obstacles.sbpd_map import SBPDMap
 from params.central_params import create_simulator_params
 from socnav.socnav_renderer import SocNavRenderer
-from utils.image_utils import save_to_gif, render_socnav
+from utils.image_utils import render_socnav, save_to_gif
 from utils.utils import color_text
 
-from simulators.sim_state import SimState, AgentState
+from simulators.sim_state import AgentState, SimState
 
 
 class SimulatorHelper(object):
@@ -34,7 +35,7 @@ class SimulatorHelper(object):
         self.params: DotMap = create_simulator_params(verbose)
         self.episode_params: DotMap = None
         # by default there is no robot (or algorithm)
-        self.algo_name: str = "lite"
+        self.algo_name: Optional[str] = None
         self.obstacle_map: SBPDMap = None
         # keep track of all agents in dictionary with names as the key
         self.agents: Dict[str, Agent] = {}
@@ -48,7 +49,7 @@ class SimulatorHelper(object):
         self.sim_states: Dict[int, SimState] = {}  # TODO: make a list
         self.wall_clock_time: float = 0
         self.sim_t: float = 0.0
-        self.dt: float = 0  # will be updated in simulator based off dt
+        self.dt: float = self.params.dt  # will be updated in simulator based off dt
         # metadata of agents
         self.total_agents: int = 0
         self.num_collided_agents: int = 0
@@ -290,55 +291,74 @@ class SimulatorHelper(object):
         Args:
             filename (str, optional): name of each png frame (unindexed). Defaults to "obs".
         """
-        fps_scale: float = self.params.fps_scale_down
-        if fps_scale == 0 or not self.params.record_video:
-            print(
-                "%sNot rendering movie%s" % (color_text["orange"], color_text["reset"])
-            )
+        if not self.params.render_params.render_movie:
+            print(f"{color_text['orange']}Not rendering movie{color_text['reset']}")
             return
 
-        # Rendering movie
-        fps: float = fps_scale / self.dt
-        print(
-            "Rendering movie with %sfps=%d%s"
-            % (color_text["orange"], fps, color_text["reset"])
-        )
-        num_states = len(self.sim_states)
-        num_frames = int(np.ceil(num_states * fps_scale))
+        # currently only single-threaded mode is supported for 3d rendering
+        num_cores: int = 1 if self.params.render_3D else self.params.render_params.num_procs
 
+        # Rendering movie
+        fps: float = 1.0 / self.dt
+        print(
+            "Rendering movie with {}fps={}{} on {}{} processors{}".format(
+                color_text["orange"],
+                fps,
+                color_text["reset"],
+                color_text["blue"],
+                num_cores,
+                color_text["reset"],
+            )
+        )
+        common_env: Dict[str, Any] = None
+
+        # collect list of sim_states to render
         sim_state_bank = list(self.sim_states.values())
 
-        # generate associative flags
-        # figure out which frames (sim_states) to skip
-        def generate_skip_flags(num_s: int, framerate_scale: float) -> np.ndarray:
-            skip = 0
-            sim_state_skip = []
-            for _ in range(num_s):
-                if skip == 0:
-                    sim_state_skip.append(1)
-                    # reset skip counter for frames
-                    skip = int(1.0 / framerate_scale) - 1
-                else:
-                    sim_state_skip.append(0)
-                    # skip certain other frames as directed by the fps_scale_down
-                    skip -= 1
-            assert len(sim_state_skip) == num_s
-            return np.array(sim_state_skip).astype(np.int16)
+        # optionally (for multi-robot rendering) render this instead
+        if self.params.render_params.draw_parallel_robots:
+            if self.params.output_directory is None:
+                self.params.output_directory = os.path.join(
+                    self.params.socnav_params.socnav_dir,
+                    "tests",
+                    "socnav",
+                    "test_multi_robot",
+                    self.episode_params.name,
+                )
+                self.params.render_params.output_directory = (
+                    self.params.output_directory
+                )
+                self.params.render_params.test_name = self.episode_params.name
 
-        sim_state_skip = generate_skip_flags(num_states, fps_scale)
+            max_algo_times: Dict[str, float] = SimState.get_max_parallel_sim_states(
+                self.params.render_params
+            )
+            max_sim_t = max(max_algo_times.values())
+            num_states_per_proc = int(np.ceil((max_sim_t / self.dt) / num_cores))
+            common_env = SimState.get_common_env(self.params.render_params)
+            num_frames = num_states_per_proc * num_cores
+        else:
+            num_states_per_proc = int(np.ceil(len(self.sim_states) / num_cores))
+            num_frames = int(np.ceil(len(sim_state_bank)))
 
         start_time = float(time.time())
-
-        # currently only single-threaded mode is supported for 3d rendering
-        num_cores: int = 1 if self.params.render_3D else self.params.num_render_cores
 
         def worker_render_sim_states(procID: int) -> None:
             # runs an interleaved loop across sim_states in the bank
             mpl.use("Agg")  # for rendering without a display
             mpl.font_manager._get_font.cache_clear()
-            for i in range(int(np.ceil(len(sim_state_bank) / num_cores))):
+            for i in range(num_states_per_proc):
                 sim_idx: int = procID + i * num_cores
-                if sim_idx < len(sim_state_bank) and sim_state_skip[sim_idx] == 1:
+                if self.params.render_params.draw_parallel_robots:
+                    assert common_env is not None
+                    SimState.render_multi_robot(
+                        env=common_env,
+                        sim_t=sim_idx * self.dt,
+                        p=self.params,
+                        max_algo_times=max_algo_times,
+                        filename="{}_obs{:03d}.png".format(filename, sim_idx),
+                    )
+                elif sim_idx < len(sim_state_bank):
                     render_socnav(
                         sim_state=sim_state_bank[sim_idx],
                         renderer=renderer,
@@ -346,17 +366,14 @@ class SimulatorHelper(object):
                         camera_pos_13=camera_pos_13,
                         filename="{}_obs{:03d}.png".format(filename, sim_idx),
                     )
-                    sim_label = int(sim_idx * fps_scale)
-                    print(
-                        "Rendered frames: {}/{} ({:.2f})%\r".format(
-                            sim_label,
-                            num_frames,
-                            100.0 * min(1, sim_label / num_frames),
-                        ),
-                        sep=" ",
-                        end="",
-                        flush=True,
-                    )  # inline print
+                print(
+                    "Rendered frames: {}/{} ({:.2f}%)\r".format(
+                        sim_idx, num_frames, 100.0 * min(1, sim_idx / num_frames),
+                    ),
+                    sep=" ",
+                    end="",
+                    flush=True,
+                )  # inline print
 
         gif_processes: List[multiprocessing.Process] = []
         if num_cores > 1:
@@ -381,7 +398,7 @@ class SimulatorHelper(object):
             proc.join()
         time_end = float(time.time())
         print(
-            "Rendered frames: {}/{} ({:.2f})%\n"
+            "Rendered frames: {}/{} ({:.2f}%)\n"
             "Finished rendering in {:.2f}s".format(
                 num_frames, num_frames, 100.0, (time_end - start_time)
             )
@@ -393,14 +410,14 @@ class SimulatorHelper(object):
         Args:
             clear_old_files (bool, optional): Whether or not to clear old image files. Defaults to True.
         """
-        if self.params.fps_scale_down == 0 or not self.params.record_video:
+        if not self.params.render_params.render_movie:
             return
         save_to_gif(
             self.params.output_directory,
             fps=fps,
             filename="movie_{}".format(filename),
             use_ffmpeg=True,  # TODO: move to params
-            clear_old_files=self.params.clear_files,
+            clear_old_files=self.params.render_params.clear_files,
         )
         return
 

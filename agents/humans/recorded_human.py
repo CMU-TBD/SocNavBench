@@ -80,7 +80,8 @@ class PrerecordedHuman(Human):
         # construct interpolated position
         posn_interp = [x, y, theta]
         last_t = np.floor((self.get_rel_t() - self.t_data[0]) / Agent.sim_dt)
-        last_non_interp_v = np.squeeze(self.posn_data[int(last_t)].speed_nk1())
+        abs_last_t = min(len(self.posn_data) - 1, int(last_t))
+        last_non_interp_v = np.squeeze(self.posn_data[abs_last_t].speed_nk1())
         posn_interp_conf = SystemConfig.from_pos3(posn_interp, v=last_non_interp_v)
         return posn_interp_conf
 

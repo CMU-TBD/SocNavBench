@@ -32,8 +32,10 @@ class AgentBase(object):
         self.termination_cause: str = "Timeout"
         # name of the agent that the agent collided with (if applicable)
         self.latest_collider: str = ""
-        # cooldown (in terms of simulation updates) before colliding with another agent
+        # cooldown (in simulator updates) before colliding with another agent
         self.collision_cooldown: int = 0
+        # when the last collision occured
+        self.last_collision_t: float = 1e8  # basically infinity but printable
         # Whether to continue the episode even if the robot collides with a pedestrian
         self.keep_episode_running: bool = True
         # cosmetic items (for drawing the trajectories)
@@ -166,13 +168,14 @@ class AgentBase(object):
             return False
         if world_state is not None:
             own_pos = self.get_current_config().position_and_heading_nk3(squeeze=True)
-            if include_robots and self._collision_in_group(
+            collided_with_robot = include_robots and self._collision_in_group(
                 own_pos, world_state.get_robots().values()
-            ):
-                return True
-            if include_agents and self._collision_in_group(
+            )
+            collided_with_pedestrian = include_agents and self._collision_in_group(
                 own_pos, world_state.get_pedestrians().values()
-            ):
+            )
+            if collided_with_robot or collided_with_pedestrian:
+                self.last_collision_t = world_state.get_sim_t()
                 return True
         return False
 

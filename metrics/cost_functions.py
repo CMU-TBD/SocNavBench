@@ -123,7 +123,7 @@ def path_irregularity(
     # To compute the per step angle away from straight line to goal
     # compute the ray to goal from each traj step
     traj_xy = trajectory[:, :-1]
-    point_to_goal_traj = goal_config[:-1] - traj_xy
+    point_to_goal_traj = np.squeeze(goal_config)[:-1] - traj_xy
     # cos inv of dot product of vectors
     cos_theta = np.sum(point_to_goal_traj * traj_xy, axis=1) / (
         np.linalg.norm(point_to_goal_traj, axis=1) * np.linalg.norm(traj_xy, axis=1)
