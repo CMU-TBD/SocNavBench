@@ -74,6 +74,7 @@ def test_episodes() -> None:
         of a human trajectory and pathfinding. 
         """
         simulator = Simulator(environment, renderer=r, episode_params=episode)
+        simulator.params.render_params.draw_parallel_robots = False  # force false
 
         """Generate the autonomous human agents from the episode"""
         new_humans = Human.generate_humans(p, episode.agents_start, episode.agents_end)

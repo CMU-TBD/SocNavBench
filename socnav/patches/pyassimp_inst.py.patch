@@ -1,0 +1,4 @@
+92c92
+<             or tname == 'POINTER') and not isinstance(obj,int)
+---
+>             or tname == 'POINTER') and not isinstance(obj, (int, str, bytes))

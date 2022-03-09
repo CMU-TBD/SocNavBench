@@ -48,7 +48,7 @@ def create_socnav_params() -> DotMap:
     p = DotMap()
     socnav_p = user_config["socnav_params"]
     p.seed = seed
-    p.render_3D = socnav_p.get("render_mode") == "full-render"
+    p.render_3D = create_render_params().render_3D
     p.dataset_dir = socnav_p.get("dataset_dir")
     p.socnav_dir = get_path_to_socnav()
     p.traversible_dir = get_traversible_dir()
@@ -312,15 +312,8 @@ def create_simulator_params(verbose=True) -> DotMap:
     p.block_joystick = sim_p.get("synchronous_mode") == "synchronous"
     p.delta_t_scale = sim_p.getfloat("delta_t_scale")
     p.socnav_params = create_socnav_params()
-    p.render_params = create_renderer_params(p.socnav_params.render_3D)
-    p.img_scale = sim_p.getfloat("img_scale")
-    p.max_frames = sim_p.getint("max_frames")
-    # bound by 0 <= X <= 1
-    p.fps_scale_down = max(0.0, min(1.0, sim_p.getfloat("fps_scale_down")))
-    # bound by 0 <= X
-    p.num_render_cores = max(0, sim_p.getint("num_render_cores"))
-    # sbpd simulator params:
-    p.render_3D = p.socnav_params.render_3D
+    p.render_params = create_render_params()
+    p.render_3D = p.render_params.render_3D
     # Load obstacle map params
     p.obstacle_map_params = create_obstacle_map_params()
     # much faster to only render the topview rather than use the 3D renderer
@@ -345,8 +338,6 @@ def create_simulator_params(verbose=True) -> DotMap:
                 % (color_text["blue"], color_text["reset"])
             )
     p.verbose_printing = sim_p.getboolean("verbose_printing")
-    p.clear_files = sim_p.getboolean("clear_files")
-    p.record_video = sim_p.getboolean("record_video")
     return p
 
 
@@ -375,14 +366,21 @@ def create_agent_render_params(agent_type: Optional[str] = "human"):
     return p
 
 
-def create_renderer_params(render_3d: bool) -> DotMap:
+def create_render_params() -> DotMap:
     p = DotMap()
     renderer_p = user_config["renderer_params"]
-    p.render_3D = render_3d
+    raw_render_mode = renderer_p.get("render_mode")
+    assert raw_render_mode == "full-render" or raw_render_mode == "schematic"
+    p.render_3D = bool(raw_render_mode == "full-render")
+    p.render_movie = renderer_p.getboolean("render_movie")
+    p.img_scale = renderer_p.getfloat("img_scale")
+    p.num_procs = renderer_p.getint("num_procs")
     p.draw_human_traversibles = renderer_p.getboolean("draw_human_traversible")
     p.plot_meter_tick = renderer_p.getboolean("plot_meter_tick")
-    p.plot_quiver = renderer_p.getboolean("plot_quiver")
+    p.plot_meter_quiver = renderer_p.getboolean("plot_meter_quiver")
     robot_kwargs = literal_eval(renderer_p.get("draw_parallel_robots_params_by_algo"))
+    p.legend_loc = literal_eval(renderer_p.get("legend_loc"))
+    p.draw_mark_of_shame = renderer_p.getboolean("draw_mark_of_shame")
     p.draw_parallel_robots = renderer_p.getboolean("draw_parallel_robots")
     p.draw_parallel_robots_params_by_algo = {}
     for robot_algo in robot_kwargs:
@@ -404,8 +402,8 @@ def create_agent_params(
     agent_p2 = default_config["agent_params"]
 
     p.radius = agent_p.getfloat("radius")
-
-    p.record_video = agent_p2.getboolean("record_video")
+    render_params: DotMap = create_render_params()
+    p.render_movie = render_params.render_movie
     p.save_trajectory_data = agent_p2.getboolean("save_trajectory_data")
     dt = user_config["simulator_params"].getfloat("dt")
     p.collision_cooldown_amnt = int(agent_p.getfloat("collision_cooldown_amnt") / dt)

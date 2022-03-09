@@ -1,16 +1,23 @@
 import json
 import os
 from glob import glob
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from agents.agent import Agent
 from agents.humans.human import Human, HumanAppearance
 from agents.robot_agent import RobotAgent
 from dotmap import DotMap
-from matplotlib import pyplot
+from matplotlib import pyplot, lines
+from params.central_params import get_path_to_socnav
 from trajectory.trajectory import SystemConfig, Trajectory
-from utils.utils import color_text, euclidean_dist2, mkdir_if_missing, to_json_type
+from utils.utils import (
+    color_text,
+    euclidean_dist2,
+    mkdir_if_missing,
+    to_json_type,
+    touch,
+)
 
 """ These are smaller "wrapper" classes that are visible by other
 gen_agents/humans and saved during state deepcopies
@@ -30,6 +37,7 @@ class AgentState:
         collided: bool = False,
         end_acting: bool = False,
         collision_cooldown: int = -1,
+        last_collision_t: Optional[float] = None,
         radius: int = 0,
         color: str = None,
     ):
@@ -43,6 +51,7 @@ class AgentState:
         self.collided: bool = collided
         self.end_acting: bool = end_acting
         self.collision_cooldown: int = collision_cooldown
+        self.last_collision_t: float = last_collision_t
         self.radius: float = radius
         self.color: str = color
 
@@ -61,6 +70,7 @@ class AgentState:
             collided=a.get_collided(),
             end_acting=a.get_end_acting(),
             collision_cooldown=a.get_collision_cooldown(),
+            last_collision_t=a.last_collision_t,
             radius=a.get_radius(),
             color=a.get_color(),
         )
@@ -197,6 +207,7 @@ class AgentState:
         to_json_if_not_omitted("radius", self.radius)
         # no need to store 'collided' since collision cooldown contains more data
         to_json_if_not_omitted("collision_cooldown", self.collision_cooldown)
+        to_json_if_not_omitted("last_collision_t", self.last_collision_t)
         return json_dict
 
     @classmethod
@@ -224,6 +235,9 @@ class AgentState:
             if "collision_cooldown" in json_dict
             else None
         )
+        last_collision_t = (
+            json_dict["last_collision_t"] if "last_collision_t" in json_dict else None
+        )
         trajectory = None
         if "trajectory" in json_dict:
             np_repr: np.ndarray = np.array(json_dict["trajectory"])
@@ -239,6 +253,7 @@ class AgentState:
             collided=bool(coll_cooldown > 0) if coll_cooldown is not None else False,
             end_acting=False,
             collision_cooldown=coll_cooldown,
+            last_collision_t=last_collision_t,
             radius=radius,
             color=None,
         )
@@ -353,9 +368,14 @@ class SimState:
         json_dict["sim_t"] = to_json_type(self.get_sim_t())
         return json.dumps(json_dict)
 
-    def export_to_file(self, out_dir: Optional[str] = None) -> None:
+    def export_to_file(
+        self, out_dir: Optional[str] = None, export_metadata: Optional[bool] = False
+    ) -> None:
         json_repr: str = self.to_json(
-            robot_on=True, send_metadata=False, termination_cause=None, full_export=True
+            robot_on=True,
+            send_metadata=export_metadata,
+            termination_cause=None,
+            full_export=True,
         )
         filename: str = "sim_state"
         if out_dir is not None:
@@ -400,6 +420,8 @@ class SimState:
         # Compute the real_world extent (in meters) of the traversible
         map_scale = self.environment["map_scale"]
         traversible = self.environment["map_traversible"]
+        if not isinstance(traversible, np.ndarray):
+            traversible = np.array(traversible)
         ax.set_xlim(0.0, traversible.shape[1] * map_scale)
         ax.set_ylim(0.0, traversible.shape[0] * map_scale)
         human_traversible = None
@@ -435,13 +457,12 @@ class SimState:
         for human in self.pedestrians.values():
             human.render(ax, p.human_render_params)
 
-        for robot in self.robots.values():
-            robot.render(ax, p.robot_render_params)
-
-        if p.draw_parallel_robots and len(p.draw_parallel_robots_params_by_algo) > 0:
-            # draw's robots from other parallel dimensions at this time
-            self.draw_variants(ax, p)
-
+        if (
+            not p.draw_parallel_robots
+            or len(p.draw_parallel_robots_params_by_algo) == 0
+        ):
+            for robot in self.robots.values():
+                robot.render(ax, p.robot_render_params)
         # plot a small tick in the bottom left corner of schematic showing
         # how long a real world meter would be in the simulator world
         if p.plot_meter_tick:
@@ -459,7 +480,7 @@ class SimState:
                 [start[0], start[0]], [start[1] + h, start[1] - h], col
             )  # tick left
             ax.plot([end[0], end[0]], [end[1] + h, end[1] - h], col)  # tick right
-            if p.plot_quiver:
+            if p.plot_meter_quiver:
                 ax.text(
                     0.5 * (start[0] + end[0]) - 0.2,
                     start[1] + 0.5,
@@ -468,70 +489,199 @@ class SimState:
                     verticalalignment="top",
                 )
         if len(self.robots) > 0 or len(self.pedestrians) > 0:
-            # ensure no duplicate labels occur
-            handles, labels = ax.get_legend_handles_labels()
-            unique = [
-                (h, l)
-                for i, (h, l) in enumerate(zip(handles, labels))
-                if l not in labels[:i]
-            ]
-            legend_order: Dict[str, int] = {
-                "Pedestrian": 0,
-                "Robot Start": 1,
-                "Robot Goal": 2,
-                # anything else is arbitrary
-            }
-            # unique is a list of [(line2d, str), (line2d, str), ...]
-            # where the str is the label (eg. "Pedestrian")
-            ax.legend(
-                *zip(
-                    *sorted(
-                        unique,
-                        key=lambda k: legend_order[k[1]]
-                        if k[1] in legend_order
-                        else max(legend_order.values()) + 1,
-                    )
-                )
-            )
+            self.draw_legend(ax, p)
 
-    def draw_variants(self, ax: pyplot.Axes, p: DotMap) -> None:
-        this_map_name: str = self.environment["map_name"]
-        out_dir: str = p.output_directory
-        for algo in list(p.draw_parallel_robots_params_by_algo.keys()):
-            new_dir = os.path.join(out_dir, "..", "..", "test_{}".format(algo))
-            if not os.path.exists(new_dir):
-                # print("{}Failed to find directory {}{}".format(color_text["red"], new_dir, color_text["reset"]))
-                continue
-            # find directory with the same map name
-            all_dirs = glob(os.path.join(new_dir, "test_*"))
-            found_corresponding_map_dir = False
-            for map_dir in all_dirs:
-                if this_map_name.lower() in map_dir.lower():
-                    new_dir = os.path.join(new_dir, map_dir)
-                    found_corresponding_map_dir = True
-                    # only finds first one
-                    break
-            if found_corresponding_map_dir == False:
-                # print('{}Failed to find matching "{}" find directory at {}{}'.format(color_text["red"],this_map_name,new_dir,color_text["reset"]))
-                continue
-            # find sim_state_data directory
-            new_file: str = os.path.join(
-                new_dir, "sim_state_data", "sim_state_{:.4f}.json".format(self.sim_t),
-            )
-            if not os.path.exists(new_file):
-                # print("{}No sim state data saved in {}{}".format(color_text["red"], new_file, color_text["reset"]))
-                continue
-            with open(new_file, "r") as f:
-                matching_parallel_sim_state = SimState.from_json(json.load(f))
-                matching_parallel_sim_state.get_robot().render(
-                    ax, p.draw_parallel_robots_params_by_algo[algo]
+    def draw_legend(self, ax: pyplot.Axes, p: DotMap) -> None:
+        # ensure no duplicate labels occur
+        handles, labels = ax.get_legend_handles_labels()
+        legend_keys: Dict[str, pyplot.Line2D] = {}
+        assert len(handles) == len(labels)
+        for i in range(len(handles)):
+            label: str = labels[i]
+            handle: pyplot.Line2D = handles[i]
+            handle.set_linestyle("")  # no line passing through
+            if p.collided_robots != DotMap() and label in p.collided_robots:
+                assert p.robot_render_params.collision_mini_dot_mpl_kwargs is not None
+                mark_of_shame: pyplot.Line2D = lines.Line2D(
+                    xdata=[0],  # not plotted, xdata & ydata just have to be non-empty
+                    ydata=[0],
+                    **p.robot_render_params.collision_mini_dot_mpl_kwargs,
                 )
-                for pedestrian in matching_parallel_sim_state.pedestrians.values():
+                mark_of_shame.set_linestyle("")
+                handle: Tuple[pyplot.Line2D] = (handle, mark_of_shame)  # mark in legend
+            legend_keys[label] = handle
+        if len(legend_keys) == 0:
+            return  # do nothing, no label to print
+        legend_order: Dict[str, int] = {
+            "Pedestrian": 0,
+            "Robot Start": 1,
+            "Robot Goal": 2,
+            # anything else is arbitrary
+        }
+        # organize the keys in the dictionary by the legend_order if present
+        lgnd = ax.legend(
+            *zip(
+                *sorted(
+                    # ensure each item is a tuple(line2D, str)
+                    [item[::-1] for item in legend_keys.items()],
+                    key=lambda k: legend_order[k[1]]
+                    if k[1] in legend_order
+                    else max(legend_order.values()) + 1,
+                )
+            ),
+            loc=p.legend_loc,
+        )
+
+    @staticmethod
+    def get_common_env(p: DotMap) -> Dict[str, int]:
+        assert p.draw_parallel_robots is True
+        socnav_dir: str = os.path.join(get_path_to_socnav(), "tests", "socnav")
+        common_env: Dict[str, Any] = None
+        for algo in list(p.draw_parallel_robots_params_by_algo.keys()):
+            new_dir = os.path.join(socnav_dir, f"test_{algo}", f"{p.test_name}")
+            if not os.path.exists(new_dir):
+                break
+            # find sim_state_data directory
+            new_file: str = os.path.join(new_dir, "sim_state_data")
+            min_sim_t: float = 1e8
+            for sim_file in glob(new_file + "/sim_state_*.json"):
+                try:
+                    # try to infer the sim_t from just the filename (much faster)
+                    sim_t = float(
+                        sim_file.split("/")[-1]  # last one
+                        .replace("sim_state_", "")  # no prefix
+                        .replace(".json", "")  # no suffix
+                    )
+                except Exception as e:
+                    with open(sim_file, "r") as f:
+                        sim_state = SimState.from_json(json.load(f))
+                        sim_t = sim_state.sim_t
+                if sim_t < min_sim_t:
+                    min_sim_t = sim_t
+            first_sim_state_path = os.path.join(
+                new_file, "sim_state_{:.4f}.json".format(min_sim_t)
+            )
+            with open(first_sim_state_path, "r") as f:
+                sim_state = SimState.from_json(json.load(f))
+                common_env = sim_state.environment
+            if common_env is not None:  # only need to parse once
+                break
+        return common_env
+
+    @staticmethod
+    def get_max_parallel_sim_states(p: DotMap) -> Dict[str, int]:
+        assert p.draw_parallel_robots is True
+        max_states_per_algo: Dict[str, int] = {}
+        socnav_dir: str = os.path.join(get_path_to_socnav(), "tests", "socnav")
+        for algo in list(p.draw_parallel_robots_params_by_algo.keys()):
+            new_dir = os.path.join(socnav_dir, f"test_{algo}", f"{p.test_name}")
+            if not os.path.exists(new_dir):
+                break
+            # find sim_state_data directory
+            new_file: str = os.path.join(new_dir, "sim_state_data")
+            max_sim_t: float = 0.0
+            for sim_file in glob(new_file + "/sim_state_*.json"):
+                try:
+                    # try to infer the sim_t from just the filename (much faster)
+                    sim_t = float(
+                        sim_file.split("/")[-1]  # last one
+                        .replace("sim_state_", "")  # no prefix
+                        .replace(".json", "")  # no suffix
+                    )
+                except Exception as e:
+                    with open(sim_file, "r") as f:
+                        sim_state = SimState.from_json(json.load(f))
+                        sim_t = sim_state.sim_t
+                if sim_t > max_sim_t:
+                    max_sim_t = sim_t
+            max_states_per_algo[algo] = max_sim_t
+        return max_states_per_algo
+
+    @staticmethod
+    def get_sim_file_path(algo: str, test_name: str, sim_t: float) -> str:
+        socnav_dir: str = get_path_to_socnav()
+        return os.path.join(
+            socnav_dir,
+            "tests",
+            "socnav",
+            f"test_{algo}",
+            f"{test_name}",
+            "sim_state_data",
+            f"sim_state_{sim_t:.4f}.json",
+        )
+
+    @staticmethod
+    def draw_variants(
+        env: Dict[str, Any],
+        sim_t: float,
+        ax: pyplot.Axes,
+        max_algo_times: Dict[str, float],
+        p: DotMap,
+    ) -> None:
+        out_dir: str = p.output_directory
+        p.collided_robots = []  # track which robots collided across sim-states
+        for algo in list(p.draw_parallel_robots_params_by_algo.keys()):
+            test_name: str = out_dir.split("/")[-1]  # get name of this test
+            exp_sim_state_file = SimState.get_sim_file_path(algo, test_name, sim_t)
+            if not os.path.exists(exp_sim_state_file):
+                if algo in max_algo_times and sim_t > 0:
+                    # file does not exist bc the robot already terminated
+                    max_sim_t: float = max_algo_times[algo]  # get last time
+                    exp_sim_state_file = SimState.get_sim_file_path(
+                        algo, test_name, max_sim_t
+                    )
+                    assert os.path.exists(exp_sim_state_file)
+                else:
+                    continue  # just skip alltogether, file does not exist
+
+            with open(exp_sim_state_file, "r") as f:
+                sim_state = SimState.from_json(json.load(f))
+                if algo == max(max_algo_times, key=max_algo_times.get):
+                    sim_state.environment = env
+                    sim_state.render(ax, p)  # render the sim_state of the slowest
+                rob = sim_state.get_robot()
+                algo_params: DotMap = p.draw_parallel_robots_params_by_algo[algo]
+                rob.render(ax, algo_params)
+                if p.draw_mark_of_shame and sim_t >= rob.last_collision_t:
+                    assert p.robot_render_params.collision_mini_dot_mpl_kwargs
+                    x, y, _ = np.squeeze(rob.current_config.position_and_heading_nk3())
+                    ax.plot(x, y, **p.robot_render_params.collision_mini_dot_mpl_kwargs)
+                    rob_label: str = algo_params["body_normal_mpl_kwargs"]["label"]
+                    p.collided_robots.append(rob_label)  # track this robot as "shamed"
+                for pedestrian in sim_state.pedestrians.values():
                     if (
                         pedestrian.collision_cooldown is not None
                         and pedestrian.collision_cooldown > 0
                     ):
                         pedestrian.render(ax, p.human_render_params)
+                # draw legend last (after all other agents/robots)
+                sim_state.draw_legend(ax, p)
+        # reset tracking which robots collided on this frame
+        p.collided_robots = []
+
+    @staticmethod
+    def render_multi_robot(
+        env: Dict[str, Any],
+        sim_t: float,
+        p: DotMap,
+        max_algo_times: Dict[str, float],
+        filename: str,
+    ) -> None:
+        if sim_t == 0:
+            return  # bug where the first frame is not exported, just skip
+        img_size: float = 10 * p.render_params.img_scale
+        fig, ax = pyplot.subplots(1, 1, figsize=(1 * img_size, img_size))
+        ax.set_title("Multi-robot Schematic View. t={:.3f}".format(sim_t), fontsize=14)
+        ax.set_aspect("equal")
+        # draw the SimStates
+        SimState.draw_variants(env, sim_t, ax, max_algo_times, p.render_params)
+        # save the fig to file
+        full_file_name = os.path.join(p.output_directory, filename)
+        if not os.path.exists(full_file_name):
+            touch(full_file_name)  # Just as the bash command
+        pyplot.tight_layout()
+        fig.savefig(full_file_name, bbox_inches="tight", pad_inches=0)
+        pyplot.close()
 
 
 """BEGIN SimState utils"""
