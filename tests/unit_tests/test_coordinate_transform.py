@@ -92,7 +92,7 @@ def test_coordinate_transform() -> None:
     traj_global_new = dubins_car.to_world_coordinates(
         ref_config, traj_egocentric, traj_global_new
     )
-    assert np.allclose(traj_global.position_nk2(), traj_global_new.position_nk2())
+    assert np.allclose(traj_global.position_nk2(), traj_global_new.position_nk2(), atol=1E-5)
 
 
 def visualize_coordinate_transform() -> None:

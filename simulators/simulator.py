@@ -384,29 +384,36 @@ class Simulator(SimulatorHelper):
         Returns:
             Thread: The robot's update thread if it exists in the simulator, else None
         """
-        # wait for joystick connection to be established
+        r_listener_thread = None
         if self.robot is None:
             print(
                 "%sNo robot in simulator%s" % (color_text["red"], color_text["reset"])
             )
-            return None
-        # give the robot knowledge of the initial world
-        self.robot.block_joystick = self.params.block_joystick
-        self.robot.update_world(current_state)
-        # initialize the robot to establish joystick connection
-        assert self.robot.world_state is not None
-        # send first transaction to the joystick
-        print("Sending episode data to joystick...")
-        r_listener_thread = threading.Thread(target=self.robot.listen_to_joystick)
-        if power_on:
-            r_listener_thread.start()
-        # wait until joystick is ready
-        while not self.robot.joystick_ready:
-            # wait until joystick receives the environment (once)
-            time.sleep(0.01)
-        # either "Unknown" if the robot did not receive an algorithm title
-        # or the name of the planning algorithm used by the joystick
-        self.algo_name = self.robot.algo_name
+            self.algo_name = "none" # no robot present
+        else:
+            # wait for joystick connection to be established
+            # give the robot knowledge of the initial world
+            self.robot.block_joystick = self.params.block_joystick
+            self.robot.update_world(current_state)
+            # initialize the robot to establish joystick connection
+            assert self.robot.world_state is not None
+            # send first transaction to the joystick
+            print("Sending episode data to joystick...")
+            r_listener_thread = threading.Thread(target=self.robot.listen_to_joystick)
+            if power_on:
+                r_listener_thread.start()
+            # wait until joystick is ready
+            while not self.robot.joystick_ready:
+                # wait until joystick receives the environment (once)
+                time.sleep(0.01)
+            # either "Unknown" if the robot did not receive an algorithm title
+            # or the name of the planning algorithm used by the joystick
+            self.algo_name = self.robot.algo_name
+            print(
+                "Robot powering on with algorithm: {}{}{}".format(
+                    color_text["orange"], self.algo_name, color_text["reset"]
+                )
+            )
         # name of the directory to output everything
         self.params.output_directory = os.path.join(
             self.params.socnav_params.socnav_dir,
@@ -416,11 +423,6 @@ class Simulator(SimulatorHelper):
         )
         self.params.render_params.output_directory = self.params.output_directory
         self.params.algo_name = self.algo_name
-        print(
-            "Robot powering on with algorithm {}{}{}".format(
-                color_text["orange"], self.algo_name, color_text["reset"]
-            )
-        )
         return r_listener_thread
 
     def decommission_robot(self, r_listener_thread: threading.Thread) -> None:
