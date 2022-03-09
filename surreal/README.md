@@ -1,4 +1,4 @@
-## Generate Human Walking Meshes From SURREAL
+## Generate human walking meshes from SURREAL
 
 The SocNavBench 3D renderer uses photorealistic textured meshes from the [SURREAL](https://www.di.ens.fr/willow/research/surreal/) dataset. Please follow the following setup instructions; #1 and #2 are modified from the [SURREAL GitHub page](https://github.com/gulvarol/surreal).
 
@@ -15,7 +15,7 @@ Once you receive the credentials to download the dataset, you will have a person
 #### 2.1.1. SMPL data (~2.6 GB)
 a) With the same credentials as with the SURREAL dataset, you can download the necessary SMPL data and place it in `/PATH/TO/SocNavBench/surreal/download/SURREAL/smpl_data`.
 
-``` 
+```bash
 ./download_smpl_data.sh /PATH/TO/SocNavBench/surreal/download yourusername yourpassword
 ```
 
@@ -28,7 +28,7 @@ basicModel_m_lbs_10_207_0_v1.0.2.fbx
 
 Place these two files under `/PATH/TO/SocNavBench/surreal/download/SURREAL/smpl_data` folder.
 
-The folder `/PATH/TO/SocNavBench/surreal/download/SURREAL/smpl_data` should contain the folling files and folders:
+(Sanity check) The `/PATH/TO/SocNavBench/surreal/download/SURREAL/smpl_data` directory should contain the following:
 ```
 /PATH/TO/SocNavBench/surreal/download/SURREAL/smpl_data/
     - basicModel_f_lbs_10_207_0_v1.0.2.fbx
@@ -41,9 +41,9 @@ The folder `/PATH/TO/SocNavBench/surreal/download/SURREAL/smpl_data` should cont
 
 
 #### 2.1.2. Blender
-You need to download [Blender](http://download.blender.org/release/) and install scipy package to run the first part of the code. The provided code was tested with [Blender2.78](http://download.blender.org/release/Blender2.78/blender-2.78a-linux-glibc211-x86_64.tar.bz2), which is shipped with its own python executable as well as distutils package. Therefore, it is sufficient to do the following:
+You need to download [Blender](http://download.blender.org/release/) and install the scipy package to run the first part of the code. The provided code was tested with [Blender2.78](http://download.blender.org/release/Blender2.78/blender-2.78a-linux-glibc211-x86_64.tar.bz2), which is shipped with its own python executable as well as distutils package. Therefore, it is sufficient to do the following:
 
-``` 
+```bash
 # Install blender 2.78
 wget http://download.blender.org/release/Blender2.78/blender-2.78a-linux-glibc211-x86_64.tar.bz2
 
@@ -54,7 +54,7 @@ tar xjf blender-2.78a-linux-glibc211-x86_64.tar.bz2
 export BLENDER_PATH='/path/to/blender/blender-2.78-linux-glibc219-x86_64'
 
 # Install pip
-wget https://bootstrap.pypa.io/get-pip.py
+wget https://bootstrap.pypa.io/pip/3.5/get-pip.py
 $BLENDER_PATH/2.78/python/bin/python3.5m get-pip.py
 
 # Make sure you have libglu1
@@ -66,20 +66,20 @@ $BLENDER_PATH/2.78/python/bin/python3.5m -m pip install scipy
 
 Note: Installation of pip may fail in Blender 2.78a (this is a known issue)
 If this happens Blender 2.79a should work. You can install it from here (and then repeat the above steps substituting 2.79a for 2.78).
-```
+```bash
 wget https://download.blender.org/release/Blender2.79/blender-2.79a-linux-glibc219-x86_64.tar.bz2
 ```
 
-##### Check the scipy installation
-```
+#### Check the scipy installation
+```bash
 $BLENDER_PATH/blender -b -t 1 -P check_numpy.py
 ```
-If scipy & numpy are installed correctly the the script should print "Success". You may see an error similar to:
+If scipy & numpy are installed correctly the script should print `"Success"`. However, if you see an error similar to:
 ```
 ImportError: Something is wrong with the numpy installation. While importing we detected an older version of numpy
 ```
-To fix this run the following
-```
+Then run the following:
+```bash
 # Uninstall numpy & scipy
 $BLENDER_PATH/2.78/python/bin/python3.5m -m pip uninstall scipy
 $BLENDER_PATH/2.78/python/bin/python3.5m -m pip uninstall numpy
@@ -93,7 +93,7 @@ $BLENDER_PATH/2.78/python/bin/python3.5m -m pip install scipy
 ```
 
 
-## 3. Custom Instructions for SocNavBench Data Generation
+## 3. Custom instructions for SocNavBench data generation
 
 ### Make sure your data is organized correctly
 
@@ -104,7 +104,7 @@ smpl_data_folder   = '/PATH/TO/SocNavBench/surreal/download/SURREAL/smpl_data'
 ```
 
 ### Test the installation
-```
+```bash
 cd /PATH/TO/SocNavBench/surreal/code
 $BLENDER_PATH/blender -b -t 1 -P export_human_meshes.py -- --idx 2 --ishape 0 --stride 59 --gender female --body_shape 1000 --outdir test_human_mesh_generation
 ```
@@ -130,9 +130,9 @@ test_human_mesh_generation/
 ```
 The human_mesh_i.obj (mesh of the corresponding human body), and human_centering_info_i.pkl (information to canonically center and position each human) files will be used in the SocNavBench human mesh dataset.
 
-### Generate the Human Mesh Models for SocNavBench
+### Generate the human mesh models for SocNavBench
 Note: Full data generation takes around ~4 hours & 5 GB of space.
-```
+```bash
 cd /PATH/TO/SocNavBench/surreal/code
 sh generate_meshes.sh
 ```
