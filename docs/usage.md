@@ -43,7 +43,7 @@ These functions are provided in `python3` and `c++` in [`joystick/joystick_clien
 
 Users will be responsible for implementing their own:
 - `sense()` which requests a JSON-serialized [`sim_state`](../simulators/sim_state.py) and parses it.
-- `plan()` which uses the new information from the sense to determine next actions to take.
+- `plan()` which uses the new information from the **sense** phase to determine next actions to take.
 - `act()` which sends commands to the robot to execute in the simulator.
 
 For communications we use the `AF_UNIX` protocol for the fastest communications within a local host machine. The default socket identifiers are `/tmp/socnavbench_joystick_recv` and `/tmp/socnavbench_joystick_send` which may be modified in [`params/user_params.ini`](../params/user_params.ini) under `[robot_params]`. 
@@ -74,6 +74,19 @@ PYTHONPATH='.' python3 joystick/joystick_client.py --algo "social-force"
 ```
 
 Also note that joystick must be run in an external process (but within the same `conda env`). Make sure before running `joystick_client.py` that the conda environment is `socnavbench` (same as for `test_socnav.py` and `test_episodes.py`)
+
+# Run the multi-robot renderer
+Assuming you have configured the desired robots to "render" side by side in [`user_params.ini`](params/user_params.ini) under `[renderer_params]` (see `draw_parallel_robots_params_by_algo`) you will be able to render multiple robot trajectories side-by-side via.
+
+```bash
+# assuming all the joysticks denoted in run_multi_robot.sh have been set up correctly on your installation
+./run_multi_robot.sh
+
+# once it completes
+PYTHONPATH='.' python3 tests/test_multi_robot.py
+```
+![multi-robot-demo](figures/multi-robot-demo.gif)
+
 
 ## Multi-robot mode
 An often useful feature is to compare different robot ("joystick") algorithms side-by-side in the same scenario. This can be done with SocNavBench after a bit of labour. 
@@ -114,7 +127,7 @@ Here's an example of `t_eth_dense_against` rendered with all robots side-by-side
 ![zara-multi-robot-movie](figures/zara-multi-robot.gif)
 
 ## Robot
-As depicted in the [`user_params.ini`](../params/user_params.ini) user params file, the default robot is modeled after a [Pioneer P3DX robot](https://www.generationrobots.com/media/Pioneer3DX-P3DX-RevA.pdf). Since the simulation primaily focuses on the base cross-section of the robot, those are the dimensions we use. 
+As depicted in the [`user_params.ini`](../params/user_params.ini) user params file, the default robot is modeled after a [Pioneer P3DX robot](https://www.generationrobots.com/media/Pioneer3DX-P3DX-RevA.pdf). Since the simulation primarily focuses on the base cross-section of the robot, those are the dimensions we use. 
 
 Also note that we are making the assumption that both the system dynamics of the robot and the environment are the same. More information about the system dynamics can be found in the [`SocNavBench/systems`](../systems/) directory for the Dubins Car models we use. 
 
@@ -129,7 +142,7 @@ Other functionality of the robot includes:
   - If the message sent to the robot is not a keyword then it is assumed to be one or more commands from the `act()` phase.
 
 ## Episodes
-Our episodes consists of all the params used to define a typical scene. See [`episode_params_val.ini`](../params/episode_params_val.ini) for examples:
+Our episodes consist of all the params used to define a typical scene. See [`episode_params_val.ini`](../params/episode_params_val.ini) for examples:
 - `map_name` which holds the title of the specific building (in `sd3dis`) to use for this episode 
 - `pedestrian_datasets` which holds the names of the datasets to run in this episode (see [`dataset_params.ini`](../params/dataset_params.ini))
 - `datasets_start_t` which holds the starting times for the corresponding pedestrian datasets being used.

@@ -26,7 +26,7 @@ This project is also built upon the *Human Active Navigation* ([HumANav](https:/
 
 ## Citation
 If you use our work, please cite the corresponding work:
-```
+```bibtex
 @article{biswas2021socnavbench,
   title={SocNavBench: A Grounded Simulation Testing Framework for Evaluating Social Navigation},
   author={Biswas, Abhijat and Wang, Allan and Silvera, Gustavo and Steinfeld, Aaron and Admoni, Henny},
