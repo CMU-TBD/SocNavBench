@@ -103,9 +103,8 @@ class PrerecordedHuman(Human):
         # this is to account for the delay_time / init_delay
         if self.params.pause_on_collide and self.collision_cooldown > 0:
             return
-        self.current_precalc_step = int(
-            (self.get_rel_t() - self.t_data[1] + self.del_t) / self.del_t
-        )
+        self.current_precalc_step = int((self.get_rel_t() - self.t_data[1] + self.del_t) / self.del_t)
+        self.current_precalc_step = min(self.current_precalc_step, len(self.t_data) - 2) # clamp to bounds
 
     def act(self) -> None:
         if self.params.pause_on_collide and self.collision_cooldown > 0:

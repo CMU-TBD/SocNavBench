@@ -185,7 +185,7 @@ class SimulatorHelper(object):
                 # only add (or keep) agents in the time frame
                 self.prerecs[a.get_name()] = a
                 a.update(current_state)
-                if a.just_collided_with_robot(self.robot):
+                if self.robot is not None and a.just_collided_with_robot(self.robot):
                     self.num_collided_agents += 1  # add collisions with robot
             else:
                 # remove agent since its not within the time frame or finished

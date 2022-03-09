@@ -337,6 +337,9 @@ class RobotAgent(Agent):
 
     @staticmethod
     def establish_joystick_handshake(p: DotMap) -> None:
+        if p.episode_params.without_robot:
+            # lite-mode episode does not include a robot or joystick
+            return
         socks = establish_handshake(
             p, RobotAgent.robot_sender_id, RobotAgent.robot_receiver_id
         )
